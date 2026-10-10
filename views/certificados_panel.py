@@ -8,6 +8,7 @@ from core.database import get_db
 from core.valorizacion import get_valorizacion_detalle
 from core.contratos_obra import inicializar, crear_contrato, emitir_certificado
 from core.certificados_comitente import resumen_comitente
+from core.certificados_comitente_registro import inicializar as iniciar_comitente, registrar_desde_medicion, cambiar_estado
 
 
 class CertificadosPanel(QWidget):
@@ -18,7 +19,7 @@ class CertificadosPanel(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 8, 10, 8)
         top = QHBoxLayout()
-        top.addWidget(QLabel("Certificación al comitente"))
+        top.addWidget(QLabel("Comitente · avance medido del período"))
         self.periodos = QComboBox()
         top.addWidget(self.periodos, 1)
         b = QPushButton("Ver avance")
@@ -32,7 +33,7 @@ class CertificadosPanel(QWidget):
         ))
         self.tabla = QTableWidget(0, 5)
         self.tabla.setHorizontalHeaderLabels(
-            ["Ítem", "Partida", "Avance anterior", "Este período", "Acumulado"]
+            ["Ítem", "Partida", "Anterior ($)", "Período ($)", "Acumulado ($)"]
         )
         self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         lay.addWidget(self.tabla, 1)
@@ -41,7 +42,24 @@ class CertificadosPanel(QWidget):
         lay.addWidget(boton_precio)
         self.precio_comitente = QLabel('Sin calcular')
         lay.addWidget(self.precio_comitente)
-        lay.addWidget(QLabel("Liquidación rápida de subcontrato (simulación)"))
+        acciones_comitente = QHBoxLayout()
+        btn_registrar = QPushButton("Registrar certificado al comitente")
+        btn_registrar.clicked.connect(self.registrar_comitente)
+        acciones_comitente.addWidget(btn_registrar)
+        btn_presentar = QPushButton("Cambiar estado…")
+        btn_presentar.clicked.connect(self.estado_comitente)
+        acciones_comitente.addWidget(btn_presentar)
+        acciones_comitente.addStretch()
+        lay.addLayout(acciones_comitente)
+        self.certificados_cliente = QTableWidget(0, 5)
+        self.certificados_cliente.setHorizontalHeaderLabels(
+            ["ID", "N.º", "Fecha", "Estado", "Importe certificado"]
+        )
+        self.certificados_cliente.setColumnHidden(0, True)
+        self.certificados_cliente.horizontalHeader().setSectionResizeMode(
+            4, QHeaderView.Stretch)
+        lay.addWidget(self.certificados_cliente, 1)
+        lay.addWidget(QLabel("Simulador de liquidación · no registra pagos"))
         self.subtabla = QTableWidget(1, 6)
         self.subtabla.setHorizontalHeaderLabels(
             ["Contrato $", "Anterior %", "Acumulado %", "Anticipo pendiente $",
@@ -57,7 +75,14 @@ class CertificadosPanel(QWidget):
         self.resultado = QLabel("Resultado sin calcular")
         actions.addWidget(self.resultado, 1)
         lay.addLayout(actions)
-        lay.addWidget(QLabel("Contratos y certificados de subcontratistas"))
+        lay.addWidget(QLabel("Subcontratistas · contratos y certificados emitidos"))
+        aviso_sub = QLabel(
+            "Cada subcontrato tiene sus precios propios y su avance certificado. "
+            "Los recuperos de anticipos y fondos de reparo son contractuales. "
+            "Emitir un certificado no equivale a realizar un pago."
+        )
+        aviso_sub.setWordWrap(True)
+        lay.addWidget(aviso_sub)
         bar = QHBoxLayout()
         self.contratos = QComboBox()
         bar.addWidget(self.contratos, 1)
@@ -193,6 +218,7 @@ class CertificadosPanel(QWidget):
         if ix >= 0:
             self.periodos.setCurrentIndex(ix)
         self.ver_avance()
+        self.cargar_certificados_comitente()
         self.cargar_contratos()
 
     def ver_avance(self):
@@ -291,6 +317,60 @@ class CertificadosPanel(QWidget):
             QMessageBox.warning(self, "Error PDF", str(exc))
             return
         QMessageBox.information(self, "Certificado", "PDF generado en:\\n" + path)
+
+    def cargar_certificados_comitente(self):
+        db = get_db()
+        try:
+            iniciar_comitente(db)
+            registros = db.execute(
+                "SELECT id,numero,fecha,estado,total FROM certificados_comitente "
+                "WHERE proyecto_id=? ORDER BY numero DESC", (self.pid,)
+            ).fetchall()
+        finally:
+            db.close()
+        self.certificados_cliente.setRowCount(len(registros))
+        for i, fila in enumerate(registros):
+            for col, dato in enumerate(fila):
+                item = QTableWidgetItem(str(dato))
+                self.certificados_cliente.setItem(i, col, item)
+
+    def registrar_comitente(self):
+        val_id = self.periodos.currentData()
+        if val_id is None:
+            QMessageBox.information(self, "Certificado", "Primero seleccioná una medición.")
+            return
+        db = get_db()
+        try:
+            registrar_desde_medicion(db, self.pid, val_id)
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            QMessageBox.warning(self, "Certificado", str(exc))
+        finally:
+            db.close()
+        self.cargar_certificados_comitente()
+
+    def estado_comitente(self):
+        fila = self.certificados_cliente.currentRow()
+        if fila < 0:
+            QMessageBox.information(self, "Estado", "Seleccioná un certificado.")
+            return
+        certificado_id = int(self.certificados_cliente.item(fila, 0).text())
+        estados = ["borrador", "presentado", "observado", "aprobado"]
+        estado, ok = QInputDialog.getItem(
+            self, "Estado del certificado", "Nuevo estado:", estados, 0, False)
+        if not ok:
+            return
+        db = get_db()
+        try:
+            cambiar_estado(db, certificado_id, estado)
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            QMessageBox.warning(self, "No se pudo actualizar", str(exc))
+        finally:
+            db.close()
+        self.cargar_certificados_comitente()
 
     def ver_precio_comitente(self):
         vid = self.periodos.currentData()
