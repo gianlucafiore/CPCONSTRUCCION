@@ -276,10 +276,10 @@ def init_db():
             plazo INTEGER DEFAULT 60,
             gf_pct REAL DEFAULT 10.0,
             utilidad_pct REAL DEFAULT 5.0,
-            igv_pct REAL DEFAULT 18.0,
+            igv_pct REAL DEFAULT 21.0,
             grupo_analisis TEXT DEFAULT '',
             jornada_laboral REAL DEFAULT 8.0,
-            moneda TEXT DEFAULT 'Soles',
+            moneda TEXT DEFAULT 'Pesos Argentinos',
             modalidad TEXT DEFAULT 'Contrata',
             creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
