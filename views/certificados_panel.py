@@ -18,7 +18,7 @@ class CertificadosPanel(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 8, 10, 8)
         top = QHBoxLayout()
-        top.addWidget(QLabel("Certificación al comitente"))
+        top.addWidget(QLabel("Comitente · avance medido del período"))
         self.periodos = QComboBox()
         top.addWidget(self.periodos, 1)
         b = QPushButton("Ver avance")
@@ -32,7 +32,7 @@ class CertificadosPanel(QWidget):
         ))
         self.tabla = QTableWidget(0, 5)
         self.tabla.setHorizontalHeaderLabels(
-            ["Ítem", "Partida", "Avance anterior", "Este período", "Acumulado"]
+            ["Ítem", "Partida", "Anterior ($)", "Período ($)", "Acumulado ($)"]
         )
         self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         lay.addWidget(self.tabla, 1)
@@ -41,7 +41,7 @@ class CertificadosPanel(QWidget):
         lay.addWidget(boton_precio)
         self.precio_comitente = QLabel('Sin calcular')
         lay.addWidget(self.precio_comitente)
-        lay.addWidget(QLabel("Liquidación rápida de subcontrato (simulación)"))
+        lay.addWidget(QLabel("Simulador de liquidación · no registra pagos"))
         self.subtabla = QTableWidget(1, 6)
         self.subtabla.setHorizontalHeaderLabels(
             ["Contrato $", "Anterior %", "Acumulado %", "Anticipo pendiente $",
@@ -57,7 +57,14 @@ class CertificadosPanel(QWidget):
         self.resultado = QLabel("Resultado sin calcular")
         actions.addWidget(self.resultado, 1)
         lay.addLayout(actions)
-        lay.addWidget(QLabel("Contratos y certificados de subcontratistas"))
+        lay.addWidget(QLabel("Subcontratistas · contratos y certificados emitidos"))
+        aviso_sub = QLabel(
+            "Cada subcontrato tiene sus precios propios y su avance certificado. "
+            "Los recuperos de anticipos y fondos de reparo son contractuales. "
+            "Emitir un certificado no equivale a realizar un pago."
+        )
+        aviso_sub.setWordWrap(True)
+        lay.addWidget(aviso_sub)
         bar = QHBoxLayout()
         self.contratos = QComboBox()
         bar.addWidget(self.contratos, 1)
