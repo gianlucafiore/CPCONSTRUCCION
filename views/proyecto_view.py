@@ -2024,7 +2024,7 @@ class ProyectoView(QWidget):
         # Listar lo que SÍ se puede editar en el estado actual.
         editables = [n for f, n in (
             (self._ed_presupuesto, "Presupuesto (partidas, ACU, metrados)"),
-            (self._ed_pie,         "Pie de presupuesto"),
+            (self._ed_pie,         "Determinación de Precio"),
             (self._ed_specs,       "Especificaciones técnicas"),
             (self._ed_cronograma,  "Cronograma"),
         ) if f]
@@ -2272,7 +2272,7 @@ class ProyectoView(QWidget):
         _tbtn(f"{_tr('Cronogramas')} ▾", None, menu=self._build_cronograma_menu())
         _tbtn("Control de Obra ▾", None, menu=self._build_control_obra_menu())
         _tbtn(_tr("Fórmula Polinómica"), self._ir_formula)
-        _tbtn("Pie", self._ir_pie, sep_after=True)
+        _tbtn("Determinación de Precio", self._ir_pie, sep_after=True)
         _tbtn("IA ▾", None, menu=self._build_ia_menu())
 
         hl.addStretch()
@@ -3547,7 +3547,7 @@ class ProyectoView(QWidget):
         hdr_hl.addWidget(btn_back)
         hdr_hl.addSpacing(8)
 
-        lbl_title = QLabel("Pie de Presupuesto")
+        lbl_title = QLabel("Determinación de Precio")
         lbl_title.setStyleSheet(
             "color:white; font-size:12px; font-weight:700;"
             " background:transparent; border:none;")

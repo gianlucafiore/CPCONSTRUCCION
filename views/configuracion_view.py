@@ -94,6 +94,7 @@ class ConfiguracionView(QWidget):
         ('jornada',     "Jornada laboral",         "General"),
         ('decimales',   "Decimales",               "General"),
         ('backups',     "Copias de seguridad",     "Sistema"),
+        ('bases',       "Bases de datos",          "Sistema"),
         ('exportacion', "Carpeta de exportación",  "Sistema"),
         ('barra',       "Barra de título",         "Sistema"),
         ('ia',          "Inteligencia artificial", "Sistema"),
@@ -108,6 +109,64 @@ class ConfiguracionView(QWidget):
     # Última sección abierta en la sesión (atributo de clase: la vista se
     # recrea al volver a entrar).
     _ultima_seccion = 'empresa'
+
+    def _card_bases_datos(self):
+        """Selector seguro de bases, que surte efecto luego de reiniciar."""
+        from core.config import DB_PATH, USER_DATA_DIR
+        from core.bases_locales import verificar_base, copiar_base
+        w = QFrame()
+        v = QVBoxLayout(w)
+        v.setContentsMargins(18, 16, 18, 16)
+        v.setSpacing(10)
+        v.addWidget(QLabel("Bases de datos"))
+        v.addWidget(QLabel("Base activa (no se modifica hasta reiniciar):"))
+        actual = QLineEdit(str(DB_PATH))
+        actual.setReadOnly(True)
+        v.addWidget(actual)
+        nota = QLabel("Cambiar de base requiere cerrar y abrir CPconstruccion. "
+                      "Tus bases y proyectos existentes no se eliminan.")
+        nota.setWordWrap(True)
+        v.addWidget(nota)
+        botones = QHBoxLayout()
+        def elegir():
+            ruta, _ = QFileDialog.getOpenFileName(w, "Abrir base SQLite", str(DB_PATH.parent),
+                                                   "SQLite (*.db *.sqlite *.sqlite3);;Todos (*)")
+            if not ruta:
+                return
+            try:
+                verificar_base(ruta)
+                (USER_DATA_DIR / "active_database.txt").write_text(str(Path(ruta).resolve()),
+                                                                     encoding="utf-8")
+            except Exception as exc:
+                QMessageBox.warning(w, "Base incompatible", str(exc))
+                return
+            QMessageBox.information(w, "Base seleccionada",
+                "La próxima vez que abras CPconstruccion se utilizará:\n" + ruta +
+                "\n\nCerrá y volvé a iniciar la aplicación.")
+        def restaurar():
+            archivo = USER_DATA_DIR / "active_database.txt"
+            if archivo.exists():
+                archivo.unlink()
+            QMessageBox.information(w, "Base predeterminada",
+                "Se utilizará la base predeterminada en el próximo inicio.")
+        def respaldo():
+            ruta, _ = QFileDialog.getSaveFileName(w, "Guardar copia de seguridad",
+                str(Path.home() / "CPCONSTRUCCION-respaldo.db"), "SQLite (*.db)")
+            if not ruta:
+                return
+            try:
+                copiar_base(DB_PATH, ruta)
+                QMessageBox.information(w, "Copia realizada", "Base respaldada en:\n" + ruta)
+            except Exception as exc:
+                QMessageBox.warning(w, "No se pudo respaldar", str(exc))
+        for nombre, accion in (("Abrir otra base…", elegir), ("Base predeterminada", restaurar),
+                              ("Guardar copia…", respaldo)):
+            boton = QPushButton(nombre)
+            boton.clicked.connect(accion)
+            botones.addWidget(boton)
+        v.addLayout(botones)
+        v.addStretch()
+        return w
 
     def _build_ui(self):
         from utils.i18n import tr
@@ -173,6 +232,7 @@ class ConfiguracionView(QWidget):
             'jornada':     lambda: self._pagina(self._card_jornada()),
             'decimales':   lambda: self._pagina(self._card_decimales()),
             'backups':     lambda: self._pagina(self._card_backups()),
+            'bases':       lambda: self._pagina(self._card_bases_datos()),
             'exportacion': lambda: self._pagina(self._card_ruta_exportacion()),
             'barra':       lambda: self._pagina(self._card_barra_titulo()),
             'ia':          self._make_tab_ia,

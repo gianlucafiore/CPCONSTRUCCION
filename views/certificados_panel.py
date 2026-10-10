@@ -2,10 +2,11 @@
 """Vista preliminar de liquidaciones contractuales, sin emitir facturas."""
 from __future__ import annotations
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QComboBox)
+    QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QComboBox, QInputDialog)
 from core.certificados_contratos import certificado_subcontrato
 from core.database import get_db
 from core.valorizacion import get_valorizacion_detalle
+from core.contratos_obra import inicializar, crear_contrato, emitir_certificado
 
 
 class CertificadosPanel(QWidget):
@@ -34,7 +35,7 @@ class CertificadosPanel(QWidget):
         )
         self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         lay.addWidget(self.tabla, 1)
-        lay.addWidget(QLabel("Simulador de certificado de subcontrato (sin guardar)"))
+        lay.addWidget(QLabel("Liquidación rápida de subcontrato (simulación)"))
         self.subtabla = QTableWidget(1, 6)
         self.subtabla.setHorizontalHeaderLabels(
             ["Contrato $", "Anterior %", "Acumulado %", "Anticipo pendiente $",
@@ -50,7 +51,122 @@ class CertificadosPanel(QWidget):
         self.resultado = QLabel("Resultado sin calcular")
         actions.addWidget(self.resultado, 1)
         lay.addLayout(actions)
+        lay.addWidget(QLabel("Contratos y certificados de subcontratistas"))
+        bar = QHBoxLayout()
+        self.contratos = QComboBox()
+        bar.addWidget(self.contratos, 1)
+        for nombre, accion in (("+ Contrato", self.nuevo_contrato),
+                              ("Emitir certificado", self.certificar),
+                              ("Actualizar", self.cargar_contratos)):
+            btn = QPushButton(nombre)
+            btn.clicked.connect(accion)
+            bar.addWidget(btn)
+        lay.addLayout(bar)
+        self.historial = QTableWidget(0, 6)
+        self.historial.setHorizontalHeaderLabels(
+            ["N.º", "Fecha", "Avance acumulado %", "Bruto", "Recupero", "Neto"]
+        )
+        self.historial.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        lay.addWidget(self.historial, 1)
+        self.contratos.currentIndexChanged.connect(self.cargar_historial)
         self.cargar()
+
+    def nuevo_contrato(self):
+        nombre, ok = QInputDialog.getText(self, "Subcontrato", "Contratista:")
+        if not ok or not nombre.strip():
+            return
+        rubro, ok = QInputDialog.getText(self, "Subcontrato", "Rubro:")
+        if not ok or not rubro.strip():
+            return
+        monto, ok = QInputDialog.getDouble(self, "Subcontrato",
+                                           "Monto contractual:", 0, 0.01, 1e15, 2)
+        if not ok:
+            return
+        anticipo, ok = QInputDialog.getDouble(self, "Subcontrato",
+                                             "Anticipo entregado:", 0, 0, monto, 2)
+        if not ok:
+            return
+        recupero, ok = QInputDialog.getDouble(self, "Subcontrato",
+                                             "Recupero por certificado (%):", 0, 0, 100, 2)
+        if not ok:
+            return
+        reparo, ok = QInputDialog.getDouble(self, "Subcontrato",
+                                           "Fondo de reparo (%):", 0, 0, 100, 2)
+        if not ok:
+            return
+        db = get_db()
+        try:
+            inicializar(db)
+            crear_contrato(db, self.pid, nombre, rubro, monto, anticipo, recupero, reparo)
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            QMessageBox.warning(self, "Contrato", str(exc))
+        finally:
+            db.close()
+        self.cargar_contratos()
+
+    def cargar_contratos(self):
+        db = get_db()
+        try:
+            inicializar(db)
+            rows = db.execute(
+                "SELECT id,contratista,rubro FROM contratos_subcontrato "
+                "WHERE proyecto_id=? ORDER BY id", (self.pid,)
+            ).fetchall()
+        finally:
+            db.close()
+        seleccionado = self.contratos.currentData()
+        self.contratos.blockSignals(True)
+        self.contratos.clear()
+        for cid, nombre, rubro in rows:
+            self.contratos.addItem(f"{nombre} — {rubro}", cid)
+        pos = self.contratos.findData(seleccionado)
+        if pos >= 0:
+            self.contratos.setCurrentIndex(pos)
+        self.contratos.blockSignals(False)
+        self.cargar_historial()
+
+    def cargar_historial(self):
+        cid = self.contratos.currentData()
+        self.historial.setRowCount(0)
+        if cid is None:
+            return
+        db = get_db()
+        try:
+            rows = db.execute(
+                "SELECT numero,fecha,avance_acumulado,bruto,recupero,neto "
+                "FROM certificados_subcontrato WHERE contrato_id=? ORDER BY numero",
+                (cid,)
+            ).fetchall()
+        finally:
+            db.close()
+        self.historial.setRowCount(len(rows))
+        for i, row in enumerate(rows):
+            for j, valor in enumerate(row):
+                self.historial.setItem(i, j, QTableWidgetItem(str(valor)))
+
+    def certificar(self):
+        cid = self.contratos.currentData()
+        if cid is None:
+            return
+        avance, ok = QInputDialog.getDouble(self, "Certificado de avance",
+                                           "Avance acumulado (%):", 0, 0, 100, 2)
+        if not ok:
+            return
+        from datetime import date
+        db = get_db()
+        try:
+            numero, r = emitir_certificado(db, cid, avance, date.today().isoformat())
+            db.commit()
+            QMessageBox.information(self, "Certificado registrado",
+                f"Certificado registrado. Neto a liquidar: $ {r['neto']:,.2f}")
+        except Exception as exc:
+            db.rollback()
+            QMessageBox.warning(self, "No se puede certificar", str(exc))
+        finally:
+            db.close()
+        self.cargar_historial()
 
     def cargar(self):
         db = get_db()
@@ -70,6 +186,7 @@ class CertificadosPanel(QWidget):
         if ix >= 0:
             self.periodos.setCurrentIndex(ix)
         self.ver_avance()
+        self.cargar_contratos()
 
     def ver_avance(self):
         val_id = self.periodos.currentData()
