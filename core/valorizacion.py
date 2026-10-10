@@ -58,12 +58,30 @@ def get_valorizacion(val_id: int) -> dict | None:
     return obra_crud.obtener('valorizaciones', val_id)
 
 
+def _tiene_certificado(conn, val_id: int) -> bool:
+    """Respetar BD anteriores donde aún no existe la tabla de certificados."""
+    tabla = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='certificados_comitente'"
+    ).fetchone()
+    return bool(tabla and conn.execute(
+        "SELECT 1 FROM certificados_comitente WHERE valorizacion_id=? LIMIT 1",
+        (val_id,)
+    ).fetchone())
+
+
 def cerrar_valorizacion(val_id: int):
     """Congela la valorización (no se puede editar su metrado)."""
     obra_crud.set_estado('valorizaciones', val_id, abierto=False)
 
 
 def reabrir_valorizacion(val_id: int):
+    conn = get_db()
+    try:
+        if _tiene_certificado(conn, val_id):
+            raise ValueError("La medición ya tiene un certificado registrado y no puede reabrirse.")
+    finally:
+        conn.close()
     obra_crud.set_estado('valorizaciones', val_id, abierto=True)
 
 
@@ -76,7 +94,7 @@ def set_periodo(val_id: int, periodo_desde: str, periodo_hasta: str) -> bool:
     try:
         v = conn.execute("SELECT estado FROM valorizaciones WHERE id=?",
                          (val_id,)).fetchone()
-        if not v or v['estado'] == 'cerrada':
+        if not v or v['estado'] == 'cerrada' or _tiene_certificado(conn, val_id):
             return False
         conn.execute("UPDATE valorizaciones SET periodo_desde=?, periodo_hasta=? "
                      "WHERE id=?", (periodo_desde or '', periodo_hasta or '', val_id))
@@ -95,7 +113,7 @@ def eliminar_valorizacion(val_id: int) -> bool:
     try:
         v = conn.execute("SELECT proyecto_id, numero, estado FROM valorizaciones "
                          "WHERE id=?", (val_id,)).fetchone()
-        if not v or v['estado'] == 'cerrada':
+        if not v or v['estado'] == 'cerrada' or _tiene_certificado(conn, val_id):
             return False
         ultimo = conn.execute(
             "SELECT MAX(numero) AS n FROM valorizaciones WHERE proyecto_id=?",
@@ -119,7 +137,7 @@ def set_metrado_ejecutado(val_id: int, partida_id: int, metrado) -> bool:
     try:
         v = conn.execute("SELECT estado FROM valorizaciones WHERE id=?",
                          (val_id,)).fetchone()
-        if not v or v['estado'] == 'cerrada':
+        if not v or v['estado'] == 'cerrada' or _tiene_certificado(conn, val_id):
             return False
         # Edición manual del metrado mensual (origen='manual'). Cuando una
         # partida tiene parte diario, la grilla bloquea su celda y esto no se
