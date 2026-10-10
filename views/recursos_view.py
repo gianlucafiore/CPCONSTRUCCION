@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QSizePolicy, QStyledItemDelegate, QStyle, QStyleOptionViewItem, QApplication,
 )
 
-from core.database import get_db, _siguiente_codigo_inei
+from core.database import get_db, _siguiente_codigo_inei, siguiente_codigo_recurso
 from views._catalogo_base import CatalogoTablaMixin, UnidadSuperindiceMixin
 from core.config import TIPOS_RECURSO, INEI_DEFAULT
 from utils.formatting import fmt, parse_num, moneda_defecto
@@ -282,7 +282,7 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
         inei = self._inei_actual() or "99"
         if len(inei) == 2 and inei.isdigit():
             conn = get_db()
-            self.inp_codigo.setText(_siguiente_codigo_inei(conn, inei))
+            self.inp_codigo.setText(siguiente_codigo_recurso(conn))
             conn.close()
         else:
             if not self.es_edicion:
@@ -332,7 +332,7 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
 
         conn = get_db()
         if not codigo:
-            codigo = _siguiente_codigo_inei(conn, inei or "99")
+            codigo = siguiente_codigo_recurso(conn)
 
         # Para overhead (% MO / % MAT / % EQ) el precio debe ser 0
         if unidad.startswith('%'):
@@ -701,8 +701,8 @@ class RecursosView(CatalogoTablaMixin, QWidget):
         if not r:
             conn.close()
             return
-        inei = r['indice_inei'] or (r['codigo'][:2] if r['codigo'] else '39')
-        nuevo_cod = _siguiente_codigo_inei(conn, inei)
+        inei = r['indice_inei'] or ''
+        nuevo_cod = siguiente_codigo_recurso(conn)
         conn.execute(
             "INSERT INTO recursos (codigo, descripcion, tipo, unidad, precio, indice_inei) "
             "VALUES (?,?,?,?,?,?)",
