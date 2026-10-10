@@ -462,6 +462,12 @@ class _ValorizacionesPanel(QWidget):
         _rm.addAction("LibreOffice (.ods)", lambda: self._reporte('ods'))
         self.btn_reporte.setMenu(_rm)
         tb.addWidget(self.btn_reporte)
+        btn_certificado = _btn("Preparar certificado →", self._ir_a_certificados, primary=True)
+        btn_certificado.setToolTip(
+            "Abrir Certificados con esta medición seleccionada. "
+            "No se registra ningún certificado hasta que confirmes la operación."
+        )
+        tb.addWidget(btn_certificado)
         tb.addStretch()
         self.lbl_estado = QLabel("")
         self.lbl_estado.setStyleSheet("background:transparent; border:none;"
@@ -980,6 +986,15 @@ class _ValorizacionesPanel(QWidget):
             self.lbl_estado.setStyleSheet("background:transparent; border:none;"
                 f" font-size:11px; font-weight:700; color:{GREEN_700};")
 
+    def _ir_a_certificados(self):
+        """Un único recorrido desde avance medido hasta precio certificado."""
+        control = self.parent()
+        if control is None or not hasattr(control, "_cert_panel"):
+            return
+        control.mostrar_tab(control._idx_cert)
+        if self._val_id:
+            control._cert_panel.seleccionar_medicion(self._val_id)
+
     def _nueva(self):
         dlg = _PeriodoDialog(self)
         if dlg.exec() != QDialog.Accepted:
@@ -1018,7 +1033,11 @@ class _ValorizacionesPanel(QWidget):
             return
         v = V.get_valorizacion(self._val_id)
         if v['estado'] == 'cerrada':
-            V.reabrir_valorizacion(self._val_id)
+            try:
+                V.reabrir_valorizacion(self._val_id)
+            except ValueError as exc:
+                QMessageBox.information(self, "Medición certificada", str(exc))
+                return
         else:
             if QMessageBox.question(
                 self, "Cerrar valorización",
