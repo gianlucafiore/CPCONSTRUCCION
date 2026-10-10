@@ -13,10 +13,6 @@ def _conexion():
     db.execute("INSERT INTO proyectos(id) VALUES(1)")
     inicializar(db)
     db.execute("INSERT INTO fuentes_indices(id,nombre,pais) VALUES(1,'Fuente prueba','AR')")
-    db.executemany(
-        "INSERT INTO series_indices(id,fuente_id,codigo,nombre) VALUES(1,1,?,?)",
-        [],
-    )
     for id_, nombre in ((1, 'CAC'), (2, 'IPC'), (3, 'ICC')):
         db.execute(
             "INSERT INTO series_indices(id,fuente_id,codigo,nombre) VALUES(?,1,?,?)",
