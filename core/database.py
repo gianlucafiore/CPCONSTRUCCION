@@ -1061,6 +1061,9 @@ def init_db():
         except Exception:
             pass
 
+    # Tablas universales independientes de los índices INEI históricos.
+    from core.indices_genericos import inicializar as _inicializar_indices_genericos
+    _inicializar_indices_genericos(conn)
     conn.close()
 
 # ─── HELPERS DE USUARIOS ──────────────────────────────────────────────────────
