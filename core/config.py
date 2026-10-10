@@ -61,7 +61,10 @@ USER_DATA_DIR = _resolver_user_data_dir()
 USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Datos editables — viven en la carpeta del usuario
-DB_PATH      = USER_DATA_DIR / "presupuestos.db"
+# La ruta personalizada se elige antes de iniciar la app.
+# No modifica ni migra la base predeterminada.
+_DB_OVERRIDE = os.environ.get("CPCONSTRUCCION_DB", "").strip()
+DB_PATH      = Path(_DB_OVERRIDE).expanduser().resolve() if _DB_OVERRIDE else USER_DATA_DIR / "presupuestos.db"
 UPLOADS_DIR  = USER_DATA_DIR / "uploads"
 BACKUPS_DIR  = USER_DATA_DIR / "backups"
 SESSION_FILE = USER_DATA_DIR / ".session"
