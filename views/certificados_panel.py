@@ -16,120 +16,117 @@ class CertificadosPanel(QWidget):
     def __init__(self, pid, parent=None):
         super().__init__(parent)
         self.pid = pid
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 8, 10, 8)
+        from PySide6.QtWidgets import QTabWidget
+        root = QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(4)
+        root.addWidget(QLabel("Certificaciones de obra"))
+        tabs = QTabWidget(self)
+        root.addWidget(tabs, 1)
+
+        cliente = QWidget()
+        lay = QVBoxLayout(cliente)
+        lay.setContentsMargins(8, 8, 8, 8)
         top = QHBoxLayout()
-        top.addWidget(QLabel("Comitente · avance medido del período"))
+        top.addWidget(QLabel("Medición del período:"))
         self.periodos = QComboBox()
         top.addWidget(self.periodos, 1)
-        b = QPushButton("Ver avance")
-        b.clicked.connect(self.ver_avance)
-        top.addWidget(b)
+        btn = QPushButton("Actualizar")
+        btn.clicked.connect(self.ver_avance)
+        top.addWidget(btn)
         lay.addLayout(top)
-        lay.addWidget(QLabel(
-            "Mediciones de la valorización del período. Los importes "
-            "son costo directo: la Determinación de Precio debe incorporarse "
-            "antes de emitir un certificado de cobro."
-        ))
         self.tabla = QTableWidget(0, 5)
         self.tabla.setHorizontalHeaderLabels(
-            ["Ítem", "Partida", "Anterior ($)", "Período ($)", "Acumulado ($)"]
-        )
+            ["Ítem", "Partida", "Anterior ($)", "Período ($)", "Acumulado ($)"])
         self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        lay.addWidget(self.tabla, 1)
-        boton_precio = QPushButton('Calcular Determinación de Precio')
-        boton_precio.clicked.connect(self.ver_precio_comitente)
-        lay.addWidget(boton_precio)
-        self.precio_comitente = QLabel('Sin calcular')
+        lay.addWidget(self.tabla, 3)
+        acciones = QHBoxLayout()
+        for nombre, callback in (
+            ("Calcular precio", self.ver_precio_comitente),
+            ("Registrar certificado", self.registrar_comitente),
+            ("Cambiar estado", self.estado_comitente),
+        ):
+            boton = QPushButton(nombre)
+            boton.clicked.connect(callback)
+            acciones.addWidget(boton)
+        acciones.addStretch()
+        lay.addLayout(acciones)
+        self.precio_comitente = QLabel(
+            "Seleccioná una medición para obtener el costo directo y la Determinación de Precio.")
+        self.precio_comitente.setWordWrap(True)
         lay.addWidget(self.precio_comitente)
-        acciones_comitente = QHBoxLayout()
-        btn_registrar = QPushButton("Registrar certificado al comitente")
-        btn_registrar.clicked.connect(self.registrar_comitente)
-        acciones_comitente.addWidget(btn_registrar)
-        btn_presentar = QPushButton("Cambiar estado…")
-        btn_presentar.clicked.connect(self.estado_comitente)
-        acciones_comitente.addWidget(btn_presentar)
-        acciones_comitente.addStretch()
-        lay.addLayout(acciones_comitente)
+        lay.addWidget(QLabel("Certificados registrados al comitente"))
         self.certificados_cliente = QTableWidget(0, 5)
         self.certificados_cliente.setHorizontalHeaderLabels(
-            ["ID", "N.º", "Fecha", "Estado", "Importe certificado"]
-        )
+            ["ID", "N.º", "Fecha", "Estado", "Importe certificado"])
         self.certificados_cliente.setColumnHidden(0, True)
-        self.certificados_cliente.horizontalHeader().setSectionResizeMode(
-            4, QHeaderView.Stretch)
-        lay.addWidget(self.certificados_cliente, 1)
-        lay.addWidget(QLabel("Simulador de liquidación · no registra pagos"))
-        self.subtabla = QTableWidget(1, 6)
-        self.subtabla.setHorizontalHeaderLabels(
-            ["Contrato $", "Anterior %", "Acumulado %", "Anticipo pendiente $",
-             "Recupero %", "Reparo %"]
-        )
-        for col, value in enumerate(("1000000", "0", "0", "0", "0", "0")):
-            self.subtabla.setItem(0, col, QTableWidgetItem(value))
-        lay.addWidget(self.subtabla)
-        actions = QHBoxLayout()
-        btn = QPushButton("Calcular liquidación")
-        btn.clicked.connect(self.liquidar)
-        actions.addWidget(btn)
-        self.resultado = QLabel("Resultado sin calcular")
-        actions.addWidget(self.resultado, 1)
-        lay.addLayout(actions)
-        lay.addWidget(QLabel("Subcontratistas · contratos y certificados emitidos"))
-        aviso_sub = QLabel(
-            "Cada subcontrato tiene sus precios propios y su avance certificado. "
-            "Los recuperos de anticipos y fondos de reparo son contractuales. "
-            "Emitir un certificado no equivale a realizar un pago."
-        )
-        aviso_sub.setWordWrap(True)
-        lay.addWidget(aviso_sub)
+        self.certificados_cliente.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
+        lay.addWidget(self.certificados_cliente, 2)
+        tabs.addTab(cliente, "Comitente")
+
+        sub = QWidget()
+        sl = QVBoxLayout(sub)
+        sl.setContentsMargins(8, 8, 8, 8)
         bar = QHBoxLayout()
         self.contratos = QComboBox()
         bar.addWidget(self.contratos, 1)
-        for nombre, accion in (("+ Contrato", self.nuevo_contrato),
-                              ("Emitir certificado", self.certificar),
-                              ("Exportar PDF", self.exportar_certificado),
-                              ("Actualizar", self.cargar_contratos)):
+        for nombre, accion in (
+            ("+ Contrato", self.nuevo_contrato),
+            ("Emitir certificado", self.certificar),
+            ("Exportar PDF", self.exportar_certificado),
+            ("Actualizar", self.cargar_contratos),
+        ):
             btn = QPushButton(nombre)
             btn.clicked.connect(accion)
             bar.addWidget(btn)
-        lay.addLayout(bar)
+        sl.addLayout(bar)
+        sl.addWidget(QLabel(
+            "Certificados del subcontratista. Emitir no significa pagar; el anticipo y "
+            "el fondo de reparo se liquidan según el contrato."))
         self.historial = QTableWidget(0, 6)
         self.historial.setHorizontalHeaderLabels(
-            ["N.º", "Fecha", "Avance acumulado %", "Bruto", "Recupero", "Neto"]
-        )
+            ["N.º", "Fecha", "Avance acumulado %", "Bruto", "Recupero", "Neto"])
         self.historial.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        lay.addWidget(self.historial, 1)
+        sl.addWidget(self.historial, 4)
         self.contratos.currentIndexChanged.connect(self.cargar_historial)
+        tabs.addTab(sub, "Subcontratistas")
         self.cargar()
 
     def nuevo_contrato(self):
-        nombre, ok = QInputDialog.getText(self, "Subcontrato", "Contratista:")
-        if not ok or not nombre.strip():
-            return
-        rubro, ok = QInputDialog.getText(self, "Subcontrato", "Rubro:")
-        if not ok or not rubro.strip():
-            return
-        monto, ok = QInputDialog.getDouble(self, "Subcontrato",
-                                           "Monto contractual:", 0, 0.01, 1e15, 2)
-        if not ok:
-            return
-        anticipo, ok = QInputDialog.getDouble(self, "Subcontrato",
-                                             "Anticipo entregado:", 0, 0, monto, 2)
-        if not ok:
-            return
-        recupero, ok = QInputDialog.getDouble(self, "Subcontrato",
-                                             "Recupero por certificado (%):", 0, 0, 100, 2)
-        if not ok:
-            return
-        reparo, ok = QInputDialog.getDouble(self, "Subcontrato",
-                                           "Fondo de reparo (%):", 0, 0, 100, 2)
-        if not ok:
+        from PySide6.QtWidgets import (QDialog, QFormLayout, QDialogButtonBox,
+                                       QLineEdit, QDoubleSpinBox)
+        dialogo = QDialog(self)
+        dialogo.setWindowTitle("Nuevo subcontrato")
+        dialogo.setMinimumWidth(400)
+        formulario = QFormLayout(dialogo)
+        nombre = QLineEdit()
+        rubro = QLineEdit()
+        campos = []
+        for limite in (1e15, 1e15, 100, 100):
+            campo = QDoubleSpinBox()
+            campo.setDecimals(2)
+            campo.setRange(0, limite)
+            campo.setSingleStep(1)
+            campos.append(campo)
+        campos[0].setMinimum(0.01)
+        formulario.addRow("Contratista", nombre)
+        formulario.addRow("Rubro", rubro)
+        for titulo, campo in zip(
+            ("Monto contractual", "Anticipo entregado",
+             "Recupero por certificado (%)", "Fondo de reparo (%)"), campos
+        ):
+            formulario.addRow(titulo, campo)
+        botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        botones.accepted.connect(dialogo.accept)
+        botones.rejected.connect(dialogo.reject)
+        formulario.addRow(botones)
+        if dialogo.exec() != QDialog.Accepted:
             return
         db = get_db()
         try:
             inicializar(db)
-            crear_contrato(db, self.pid, nombre, rubro, monto, anticipo, recupero, reparo)
+            crear_contrato(db, self.pid, nombre.text(), rubro.text(),
+                           *(campo.value() for campo in campos))
             db.commit()
         except Exception as exc:
             db.rollback()
@@ -392,14 +389,3 @@ class CertificadosPanel(QWidget):
         finally:
             db.close()
 
-    def liquidar(self):
-        try:
-            values = [self.subtabla.item(0, i).text().replace(",", ".")
-                      for i in range(6)]
-            r = certificado_subcontrato(*values)
-            self.resultado.setText(
-                f"Bruto: $ {r['bruto']:,.2f}  ·  Recupero: $ {r['recupero']:,.2f}"
-                f"  ·  Reparo: $ {r['fondo_reparo']:,.2f}  ·  Neto: $ {r['neto']:,.2f}"
-            )
-        except Exception as exc:
-            QMessageBox.warning(self, "Liquidación inválida", str(exc))
