@@ -11235,6 +11235,7 @@ class ProyectoView(QWidget):
         menu = QMenu(self)
         menu.addAction("Resumen general", lambda: self.tabs.setCurrentIndex(4))
         menu.addAction("Memoria descriptiva", lambda: self.tabs.setCurrentIndex(5))
+        menu.addAction("Volver al análisis de partida", lambda: self.tabs.setCurrentIndex(0))
         menu.addSeparator()
         menu.addAction("Proceso de obra", self._abrir_proceso_obra)
         return menu
