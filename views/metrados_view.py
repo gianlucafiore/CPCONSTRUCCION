@@ -118,7 +118,7 @@ class MetradosView(QWidget):
         hl.addWidget(btn_back)
         hl.addSpacing(8)
 
-        lbl_title = QLabel("Hoja de Metrados")
+        lbl_title = QLabel("Cómputos métricos")
         lbl_title.setStyleSheet(
             "color:white; font-size:12px; font-weight:700;"
             " background:transparent; border:none;")
@@ -131,7 +131,7 @@ class MetradosView(QWidget):
             from utils.theme import tab_topbar
             return tab_topbar(sel, padding='3px 14px')
         self._tab_style = _tab_style
-        self.btn_tab_met = QPushButton("Metrados")
+        self.btn_tab_met = QPushButton("Cómputos")
         self.btn_tab_met.setCursor(Qt.PointingHandCursor)
         self.btn_tab_met.setStyleSheet(_tab_style(True))
         self.btn_tab_met.clicked.connect(lambda: self._select_tab(0))
@@ -199,7 +199,7 @@ class MetradosView(QWidget):
             tips = QLabel(
                 "🔒  <b>Solo lectura</b> — el proyecto está aprobado o en ejecución. "
                 "Cambia el estado a «En elaboración» (chip de estado del proyecto) "
-                "para editar los metrados."
+                "para editar los cómputos."
             )
             tips.setStyleSheet(
                 "color:#273445; font-size:11px; background:#FFF8E1;"

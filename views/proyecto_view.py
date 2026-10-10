@@ -2268,11 +2268,11 @@ class ProyectoView(QWidget):
         _tbtn(f"{_tr('Archivo')} ▾", None, sep_after=True, menu=self._build_archivo_menu())
         _tbtn(_tr("Editar"),      self._editar_proyecto)
         _tbtn(_tr("Reportes"),    self._abrir_centro_reportes, sep_after=True)
-        _tbtn(_tr("Metrados"),    self._ir_metrados)
-        _tbtn(f"{_tr('Cronogramas')} ▾", None, menu=self._build_cronograma_menu())
-        _tbtn("Control de Obra ▾", None, menu=self._build_control_obra_menu())
-        _tbtn(_tr("Fórmula Polinómica"), self._ir_formula)
-        _tbtn("Determinación de Precio", self._ir_pie, sep_after=True)
+        _tbtn("Proceso de obra ▾", self._abrir_proceso_obra, sep_after=True)
+        _tbtn("Presupuestación ▾", None, menu=self._build_presupuestacion_menu())
+        _tbtn("Planificación ▾", None, menu=self._build_cronograma_menu())
+        _tbtn("Ejecución y certificados ▾", None, menu=self._build_control_obra_menu())
+        _tbtn("Actualización de precios", self._ir_indices_contractuales, sep_after=True)
         _tbtn("IA ▾", None, menu=self._build_ia_menu())
 
         hl.addStretch()
@@ -2691,7 +2691,7 @@ class ProyectoView(QWidget):
         )
         self.tabs.addTab(self._make_tab_acu(),      "ACU")
         self.tabs.addTab(self._make_tab_insumos(),  "Insumos")
-        self.tabs.addTab(self._make_tab_metrados(), "Metrados")
+        self.tabs.addTab(self._make_tab_metrados(), "Cómputos")
         self.tabs.addTab(self._make_tab_spec(),     "Especificaciones")
         self.tabs.addTab(self._make_tab_resumen(),  "Resumen")
         self.tabs.addTab(self._make_tab_memoria(),  "Memoria")
@@ -11226,6 +11226,17 @@ class ProyectoView(QWidget):
         if tab_idx:
             QTimer.singleShot(0, lambda: self._control_view.mostrar_tab(tab_idx))
 
+    def _build_presupuestacion_menu(self):
+        """Herramientas de preparación de la oferta, sin botones redundantes."""
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction("Partidas y análisis de costos", lambda: self._root_stack.setCurrentIndex(0))
+        menu.addAction("Cómputos métricos", self._ir_metrados)
+        menu.addAction("Determinación de Precio", self._ir_pie)
+        menu.addSeparator()
+        menu.addAction("Reportes de presupuesto", self._abrir_centro_reportes)
+        return menu
+
     def _build_cronograma_menu(self):
         """QMenu del botón "Cronogramas ▾" del topbar. Atajos directos a
         cada sub-pestaña de la vista Cronograma."""
@@ -11256,8 +11267,9 @@ class ProyectoView(QWidget):
             ("Requerimientos",   0),
             ("Almacén",          1),
             ("Cuaderno de obra", 2),
-            ("Valorizaciones",   3),
+            ("Medición de avance", 3),
             ("Curva S real",     4),
+            ("Certificados",      5),
         ]
         for label, idx in opciones:
             a = QAction(label, self)
@@ -11336,6 +11348,23 @@ class ProyectoView(QWidget):
     def _ayuda_buscar_actualizaciones(self):
         from views.update_dialog import lanzar_check
         lanzar_check(self, silencioso=False)
+
+    def _abrir_proceso_obra(self):
+        from views.flujo_obra_dialog import FlujoObraDialog
+        acciones = {
+            "presupuesto": lambda: self._root_stack.setCurrentIndex(0),
+            "contratos": lambda: self._ir_control_obra(5),
+            "planificacion": lambda: self._ir_cronograma(0),
+            "ejecucion": lambda: self._ir_control_obra(3),
+            "certificacion": lambda: self._ir_control_obra(5),
+            "ajustes": self._ir_indices_contractuales,
+        }
+        from core.flujo_obra import estado_etapas
+        FlujoObraDialog(acciones, estado_etapas(self.pid), self).exec()
+
+    def _ir_indices_contractuales(self):
+        from views.formulas_indices_dialog import FormulasIndicesDialog
+        FormulasIndicesDialog(self).exec()
 
     def _ir_formula(self):
         # La fórmula polinómica es de las obras por CONTRATA: en administración
