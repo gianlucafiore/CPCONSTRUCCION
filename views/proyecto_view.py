@@ -2269,11 +2269,10 @@ class ProyectoView(QWidget):
         _tbtn(_tr("Editar"),      self._editar_proyecto)
         _tbtn(_tr("Reportes"),    self._abrir_centro_reportes, sep_after=True)
         _tbtn("Proceso de obra ▾", self._abrir_proceso_obra, sep_after=True)
-        _tbtn("Cómputos métricos", self._ir_metrados)
-        _tbtn(f"{_tr('Cronogramas')} ▾", None, menu=self._build_cronograma_menu())
-        _tbtn("Control de Obra ▾", None, menu=self._build_control_obra_menu())
-        _tbtn("Actualización de precios", self._ir_indices_contractuales)
-        _tbtn("Determinación de Precio", self._ir_pie, sep_after=True)
+        _tbtn("Presupuestación ▾", None, menu=self._build_presupuestacion_menu())
+        _tbtn("Planificación ▾", None, menu=self._build_cronograma_menu())
+        _tbtn("Ejecución y certificados ▾", None, menu=self._build_control_obra_menu())
+        _tbtn("Actualización de precios", self._ir_indices_contractuales, sep_after=True)
         _tbtn("IA ▾", None, menu=self._build_ia_menu())
 
         hl.addStretch()
@@ -11226,6 +11225,17 @@ class ProyectoView(QWidget):
         QTimer.singleShot(0, self._control_view.cargar)
         if tab_idx:
             QTimer.singleShot(0, lambda: self._control_view.mostrar_tab(tab_idx))
+
+    def _build_presupuestacion_menu(self):
+        """Herramientas de preparación de la oferta, sin botones redundantes."""
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction("Partidas y análisis de costos", lambda: self._root_stack.setCurrentIndex(0))
+        menu.addAction("Cómputos métricos", self._ir_metrados)
+        menu.addAction("Determinación de Precio", self._ir_pie)
+        menu.addSeparator()
+        menu.addAction("Reportes de presupuesto", self._abrir_centro_reportes)
+        return menu
 
     def _build_cronograma_menu(self):
         """QMenu del botón "Cronogramas ▾" del topbar. Atajos directos a
