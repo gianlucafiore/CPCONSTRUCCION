@@ -30,6 +30,10 @@ def _sincronizar_val(conn, val):
     partir de los partes diarios cuya fecha cae en su período. Usa la conexión
     abierta (no hace commit). Las partidas con partes quedan ``origen='diario'``;
     las que dejaron de tener partes vuelven a ``'manual'`` (conservan su valor)."""
+    # Un cierre congela la medición. Los partes posteriores no deben
+    # alterar cantidades que ya sustentan un certificado emitido.
+    if val['estado'] == 'cerrada':
+        return
     desde = val['periodo_desde'] or ''
     hasta = val['periodo_hasta'] or ''
     if not desde or not hasta:

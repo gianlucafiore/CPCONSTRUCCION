@@ -11193,6 +11193,7 @@ class ProyectoView(QWidget):
                 on_back=lambda: self._root_stack.setCurrentIndex(0),
                 parent=self,
                 on_editar=self._editar_proyecto,
+                on_medicion=lambda: self._ir_control_obra(3),
             )
             self._root_stack.addWidget(self._cron_view)
         else:

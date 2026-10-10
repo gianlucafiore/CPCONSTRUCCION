@@ -11,9 +11,9 @@ from core.certificados_comitente_registro import (
 def _db():
     db = sqlite3.connect(":memory:")
     db.execute("CREATE TABLE proyectos(id INTEGER PRIMARY KEY)")
-    db.execute("CREATE TABLE valorizaciones(id INTEGER PRIMARY KEY, proyecto_id INTEGER)")
+    db.execute("CREATE TABLE valorizaciones(id INTEGER PRIMARY KEY, proyecto_id INTEGER, estado TEXT DEFAULT 'abierta', periodo_desde TEXT DEFAULT '', periodo_hasta TEXT DEFAULT '')")
     db.execute("INSERT INTO proyectos VALUES(1)")
-    db.execute("INSERT INTO valorizaciones VALUES(8,1)")
+    db.execute("INSERT INTO valorizaciones(id,proyecto_id) VALUES(8,1)")
     inicializar(db)
     return db
 
@@ -28,6 +28,7 @@ def test_registrar_no_duplica_medicion_y_guarda_importes():
         row = db.execute("SELECT numero,estado,total FROM certificados_comitente WHERE id=?",
                          (cid,)).fetchone()
         assert row == (1, "borrador", "1391.50")
+        assert db.execute("SELECT estado FROM valorizaciones WHERE id=8").fetchone()[0] == "cerrada"
         with pytest.raises(ValueError):
             registrar_desde_medicion(db, 1, 8)
 

@@ -100,13 +100,14 @@ class CronogramaView(QWidget):
         return self._TIPO_POR_TAB[idx]
 
     def __init__(self, pid: int, proyecto: dict, on_back, parent=None,
-                 on_editar=None):
+                 on_editar=None, on_medicion=None):
         super().__init__(parent)
         self.pid       = pid
         self._proy     = proyecto
         self._moneda   = proyecto.get('moneda', 'Soles')
         self._on_back  = on_back
         self._on_editar = on_editar   # abre «Editar proyecto» (para cambiar el plazo)
+        self._on_medicion = on_medicion  # navegación al registro de avance real
         self._build_ui()
 
     # ──────────────────────────────────────────────────────────────────────
@@ -192,6 +193,20 @@ class CronogramaView(QWidget):
             btn_edit_plazo.clicked.connect(lambda: self._on_editar())
             bar_hl.addWidget(btn_edit_plazo)
         bar_hl.addSpacing(10)
+        if self._on_medicion is not None:
+            btn_avance = QPushButton("Registrar avance real →")
+            btn_avance.setToolTip(
+                "El Gantt es la programación prevista. Registrá las cantidades "
+                "efectivamente ejecutadas en Control de obra > Medición de avance."
+            )
+            btn_avance.setCursor(Qt.PointingHandCursor)
+            btn_avance.setStyleSheet(
+                "QPushButton { background:#E7F1F9; color:#273445; "
+                "border:1px solid #A9C4DE; border-radius:5px; "
+                "font-size:11px; padding:4px 10px; }"
+            )
+            btn_avance.clicked.connect(self._on_medicion)
+            bar_hl.addWidget(btn_avance)
 
         # Botones globales (calcular, guardar)
         btn_style = (
