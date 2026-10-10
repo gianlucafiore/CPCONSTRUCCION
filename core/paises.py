@@ -18,12 +18,11 @@ Claves en `configuracion`:
     impuesto_pct            tasa general, en %
     moneda_defecto          (ya existía) nombre de `config.MONEDAS`
 
-Sin la clave `pais` todo se comporta como Perú: a quien ya usaba el programa
-no le cambia nada hasta que elija otro país.
+Sin país configurado, CPconstruccion usa Argentina como perfil inicial.
 """
 from __future__ import annotations
 
-PAIS_DEFECTO = 'PE'
+PAIS_DEFECTO = 'AR'
 
 # iso: nombre, moneda (clave de config.MONEDAS), etiqueta tributaria,
 #      impuesto (nombre, % tasa general), centro del mapa (lat, lon) = capital.
@@ -81,7 +80,7 @@ def es_peru() -> bool:
 
 def detectar_pais(iso_sistema: str | None = None) -> str:
     """País que PROPONE la bienvenida (el usuario lo confirma): el del sistema
-    solo si es latinoamericano; si no, Perú. Muchos equipos vienen en español
+    solo si es latinoamericano; si no, Argentina. Muchos equipos vienen en español
     de España o en inglés sin que el usuario viva allí —el de Marco está en
     `es_ES`—, y un «Guardar» sin mirar los dejaba en euros. España sigue en
     la lista para elegirla a mano."""
