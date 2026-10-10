@@ -7,6 +7,7 @@ from core.certificados_contratos import certificado_subcontrato
 from core.database import get_db
 from core.valorizacion import get_valorizacion_detalle
 from core.contratos_obra import inicializar, crear_contrato, emitir_certificado
+from core.certificados_comitente import resumen_comitente
 
 
 class CertificadosPanel(QWidget):
@@ -35,6 +36,11 @@ class CertificadosPanel(QWidget):
         )
         self.tabla.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         lay.addWidget(self.tabla, 1)
+        boton_precio = QPushButton('Calcular Determinación de Precio')
+        boton_precio.clicked.connect(self.ver_precio_comitente)
+        lay.addWidget(boton_precio)
+        self.precio_comitente = QLabel('Sin calcular')
+        lay.addWidget(self.precio_comitente)
         lay.addWidget(QLabel("Liquidación rápida de subcontrato (simulación)"))
         self.subtabla = QTableWidget(1, 6)
         self.subtabla.setHorizontalHeaderLabels(
@@ -207,6 +213,26 @@ class CertificadosPanel(QWidget):
                 it = QTableWidgetItem(str(value if value is not None else ""))
                 it.setFlags(it.flags() & ~__import__('PySide6.QtCore', fromlist=['Qt']).Qt.ItemIsEditable)
                 self.tabla.setItem(i, j, it)
+
+    def ver_precio_comitente(self):
+        vid = self.periodos.currentData()
+        if vid is None:
+            return
+        db = get_db()
+        try:
+            resultado = resumen_comitente(db, vid)
+            texto = " | ".join(
+                f"{nombre}: $ {importe:,.2f}"
+                for nombre, importe in resultado["adicionales"]
+            )
+            self.precio_comitente.setText(
+                f"CD: $ {resultado['costo_directo']:,.2f} | "
+                f"{texto} | TOTAL: $ {resultado['total']:,.2f}"
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "Determinación de Precio", str(exc))
+        finally:
+            db.close()
 
     def liquidar(self):
         try:
