@@ -1,115 +1,136 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Catálogo universal de índices: carga manual auditada de series y períodos."""
+"""Gestor de índices en grilla editable, sin formularios permanentes."""
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QAbstractItemView, QFileDialog,
+    QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QComboBox,
+    QFileDialog, QAbstractItemView,
 )
 from core.database import get_db
-from core.indices_genericos import inicializar, guardar_valor, importar_csv
+from core.indices_genericos import guardar_valor, importar_csv, calcular_factor
 
 
 class IndicesGenericosView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setProperty("vista_nombre", "indices_genericos")
-        self._serie_id = None
-        root = QVBoxLayout(self)
-        root.addWidget(QLabel("Índices y actualización de costos"))
-        root.addWidget(QLabel(
-            "Series configurables. Los índices se cargan manualmente; "
-            "ninguna fuente se considera oficial sin verificar sus publicaciones."
-        ))
-        actions = QHBoxLayout()
-        for name, callback in (
-            ("Nueva fuente", self.nueva_fuente),
-            ("Nueva serie", self.nueva_serie),
-            ("Agregar valor mensual", self.nuevo_valor),
+        self._loading = False
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 10, 12, 10)
+        lay.setSpacing(6)
+        title = QHBoxLayout()
+        title.addWidget(QLabel("Índices económicos  ·  Series mensuales"))
+        self.serie = QComboBox()
+        self.serie.setMinimumWidth(250)
+        self.serie.currentIndexChanged.connect(self.cargar_tabla)
+        title.addWidget(self.serie, 1)
+        lay.addLayout(title)
+        bar = QHBoxLayout()
+        for label, handler in (
+            ("+ Fuente", self.nueva_fuente),
+            ("+ Serie", self.nueva_serie),
+            ("+ Mes", self.nuevo_mes),
             ("Importar CSV", self.importar_archivo),
-            ("Actualizar vista", self.cargar),
+            ("Fórmulas", self.abrir_formulas),
+            ("Actualizar", self.cargar),
         ):
-            btn = QPushButton(name)
-            btn.clicked.connect(callback)
-            actions.addWidget(btn)
-        actions.addStretch()
-        root.addLayout(actions)
-        self.fuentes = QTableWidget(0, 3)
-        self.fuentes.setHorizontalHeaderLabels(["ID", "País", "Fuente"])
-        self.fuentes.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.fuentes.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.fuentes.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.series = QTableWidget(0, 3)
-        self.series.setHorizontalHeaderLabels(["ID", "Fuente", "Serie"])
-        self.series.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.series.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.series.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.series.itemSelectionChanged.connect(self.cargar_valores)
-        self.valores = QTableWidget(0, 2)
-        self.valores.setHorizontalHeaderLabels(["Período", "Valor"])
-        root.addWidget(QLabel("Fuentes"))
-        root.addWidget(self.fuentes)
-        root.addWidget(QLabel("Series"))
-        root.addWidget(self.series)
-        root.addWidget(QLabel("Histórico mensual de la serie seleccionada"))
-        root.addWidget(self.valores)
+            b = QPushButton(label)
+            b.clicked.connect(handler)
+            bar.addWidget(b)
+        bar.addStretch()
+        lay.addLayout(bar)
+        self.info = QLabel("Seleccioná una serie. Doble clic para editar valores; Enter confirma.")
+        lay.addWidget(self.info)
+        self.tabla = QTableWidget(0, 2)
+        self.tabla.setHorizontalHeaderLabels(["Período (AAAA-MM)", "Valor del índice"])
+        self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tabla.setSelectionBehavior(QAbstractItemView.SelectItems)
+        self.tabla.setEditTriggers(QAbstractItemView.DoubleClicked |
+                                   QAbstractItemView.EditKeyPressed |
+                                   QAbstractItemView.AnyKeyPressed)
+        self.tabla.itemChanged.connect(self._celda_modificada)
+        lay.addWidget(self.tabla, 1)
+        lay.addWidget(QLabel(
+            "Los valores cargados deben corresponder a publicaciones verificadas. "
+            "Las fórmulas no sustituyen las condiciones del contrato."
+        ))
         self.cargar()
 
-    def _texto(self, titulo, etiqueta):
-        text, ok = QInputDialog.getText(self, titulo, etiqueta)
-        return text.strip() if ok else ""
-
-    def _seleccion(self, tabla):
-        rows = tabla.selectionModel().selectedRows()
-        if not rows:
-            return None
-        item = tabla.item(rows[0].row(), 0)
-        return int(item.text()) if item else None
-
     def cargar(self):
+        anterior = self.serie.currentData()
         db = get_db()
         try:
-            inicializar(db)
-            fuentes = db.execute(
-                "SELECT id,pais,nombre FROM fuentes_indices ORDER BY nombre"
-            ).fetchall()
-            series = db.execute(
-                "SELECT s.id,f.nombre,s.nombre FROM series_indices s "
+            rows = db.execute(
+                "SELECT s.id, f.nombre, s.nombre, f.pais FROM series_indices s "
                 "JOIN fuentes_indices f ON f.id=s.fuente_id "
                 "ORDER BY f.nombre,s.nombre"
             ).fetchall()
         finally:
             db.close()
-        for table, rows in ((self.fuentes, fuentes), (self.series, series)):
-            table.setRowCount(len(rows))
-            for i, row in enumerate(rows):
-                for j, value in enumerate(row):
-                    table.setItem(i, j, QTableWidgetItem(str(value)))
-        self.cargar_valores()
+        self.serie.blockSignals(True)
+        self.serie.clear()
+        for sid, fuente, nombre, pais in rows:
+            self.serie.addItem(f"{fuente} / {nombre} ({pais})", sid)
+        ix = self.serie.findData(anterior)
+        if ix >= 0:
+            self.serie.setCurrentIndex(ix)
+        self.serie.blockSignals(False)
+        self.cargar_tabla()
 
-    def cargar_valores(self):
-        self._serie_id = self._seleccion(self.series)
-        self.valores.setRowCount(0)
-        if self._serie_id is None:
+    def cargar_tabla(self):
+        sid = self.serie.currentData()
+        self._loading = True
+        self.tabla.setRowCount(0)
+        if sid is not None:
+            db = get_db()
+            try:
+                rows = db.execute(
+                    "SELECT periodo,valor FROM valores_indices WHERE serie_id=? "
+                    "ORDER BY periodo DESC", (sid,)
+                ).fetchall()
+            finally:
+                db.close()
+            self.tabla.setRowCount(len(rows))
+            for row, (periodo, valor) in enumerate(rows):
+                a = QTableWidgetItem(periodo)
+                a.setFlags(a.flags() & ~Qt.ItemIsEditable)
+                self.tabla.setItem(row, 0, a)
+                self.tabla.setItem(row, 1, QTableWidgetItem(str(valor)))
+        self._loading = False
+        self.info.setText(
+            f"{self.serie.currentText()}  ·  {self.tabla.rowCount()} períodos  ·  "
+            "Doble clic en el valor para editar"
+        )
+
+    def _celda_modificada(self, item):
+        if self._loading or item.column() != 1:
+            return
+        sid = self.serie.currentData()
+        periodo_item = self.tabla.item(item.row(), 0)
+        if sid is None or periodo_item is None:
             return
         db = get_db()
         try:
-            rows = db.execute(
-                "SELECT periodo,valor FROM valores_indices "
-                "WHERE serie_id=? ORDER BY periodo DESC", (self._serie_id,)
-            ).fetchall()
+            guardar_valor(db, sid, periodo_item.text(), item.text().replace(",", "."))
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            QMessageBox.warning(self, "Valor no guardado", str(exc))
         finally:
             db.close()
-        self.valores.setRowCount(len(rows))
-        for i, row in enumerate(rows):
-            for j, value in enumerate(row):
-                self.valores.setItem(i, j, QTableWidgetItem(str(value)))
+        self.cargar_tabla()
+
+    def _pedir(self, titulo, etiqueta):
+        valor, ok = QInputDialog.getText(self, titulo, etiqueta)
+        return valor.strip() if ok else ""
 
     def nueva_fuente(self):
-        nombre = self._texto("Nueva fuente", "Nombre (ej.: CAC, INDEC):")
+        nombre = self._pedir("Nueva fuente", "Organismo o fuente:")
         if not nombre:
             return
-        pais = self._texto("País", "Código de país (ej.: AR):").upper()
+        pais = self._pedir("País", "Código del país (AR, UY, etc.):").upper()
         if not pais:
             return
         db = get_db()
@@ -122,66 +143,86 @@ class IndicesGenericosView(QWidget):
         self.cargar()
 
     def nueva_serie(self):
-        fid = self._seleccion(self.fuentes)
-        if fid is None:
-            QMessageBox.information(self, "Fuente", "Seleccioná una fuente primero.")
+        db = get_db()
+        try:
+            fuentes = db.execute(
+                "SELECT id,nombre,pais FROM fuentes_indices ORDER BY nombre"
+            ).fetchall()
+        finally:
+            db.close()
+        if not fuentes:
+            QMessageBox.information(self, "Fuentes", "Creá una fuente primero.")
             return
-        nombre = self._texto("Nueva serie", "Nombre de la serie:")
-        codigo = self._texto("Código", "Código identificador de la serie:")
-        if not nombre or not codigo:
+        etiquetas = [f"{n} ({p})" for _, n, p in fuentes]
+        elegido, ok = QInputDialog.getItem(
+            self, "Fuente", "Seleccionar fuente:", etiquetas, 0, False
+        )
+        if not ok:
+            return
+        nombre = self._pedir("Nueva serie", "Nombre de la serie:")
+        if not nombre:
+            return
+        codigo = self._pedir("Código", "Código único dentro de la fuente:")
+        if not codigo:
             return
         db = get_db()
         try:
             db.execute(
                 "INSERT INTO series_indices(fuente_id,codigo,nombre) VALUES(?,?,?)",
-                (fid, codigo, nombre))
+                (fuentes[etiquetas.index(elegido)][0], codigo, nombre)
+            )
             db.commit()
-        except Exception as e:
+        except Exception as exc:
             db.rollback()
-            QMessageBox.warning(self, "No se pudo guardar", str(e))
+            QMessageBox.warning(self, "No se pudo crear", str(exc))
         finally:
             db.close()
         self.cargar()
 
-    def nuevo_valor(self):
-        sid = self._seleccion(self.series)
+    def nuevo_mes(self):
+        sid = self.serie.currentData()
         if sid is None:
-            QMessageBox.information(self, "Serie", "Seleccioná una serie primero.")
+            QMessageBox.information(self, "Serie", "Primero creá o seleccioná una serie.")
             return
-        periodo = self._texto("Período", "Período AAAA-MM:")
-        valor = self._texto("Valor", "Valor publicado del índice:")
-        if not periodo or not valor:
+        periodo = self._pedir("Agregar período", "Mes AAAA-MM:")
+        if not periodo:
+            return
+        valor = self._pedir("Valor mensual", "Valor del índice:")
+        if not valor:
             return
         db = get_db()
         try:
             guardar_valor(db, sid, periodo, valor.replace(",", "."))
             db.commit()
-        except Exception as e:
+        except Exception as exc:
             db.rollback()
-            QMessageBox.warning(self, "Valor inválido", str(e))
+            QMessageBox.warning(self, "Dato inválido", str(exc))
         finally:
             db.close()
-        self.cargar()
+        self.cargar_tabla()
 
     def importar_archivo(self):
-        sid = self._seleccion(self.series)
+        sid = self.serie.currentData()
         if sid is None:
-            QMessageBox.information(self, "Serie", "Seleccioná una serie primero.")
+            QMessageBox.information(self, "Serie", "Seleccioná una serie.")
             return
-        ruta, _ = QFileDialog.getOpenFileName(
-            self, "Importar valores mensuales", "", "CSV (*.csv)"
-        )
+        ruta, _ = QFileDialog.getOpenFileName(self, "Importar histórico", "", "CSV (*.csv)")
         if not ruta:
             return
         db = get_db()
         try:
-            cantidad = importar_csv(db, sid, ruta)
+            n = importar_csv(db, sid, ruta)
             db.commit()
-        except Exception as e:
+        except Exception as exc:
             db.rollback()
-            QMessageBox.warning(self, "Error de importación", str(e))
+            QMessageBox.warning(self, "Error CSV", str(exc))
             return
         finally:
             db.close()
-        self.cargar()
-        QMessageBox.information(self, "Importación", f"Se importaron {cantidad} períodos.")
+        self.cargar_tabla()
+        QMessageBox.information(self, "Importación completa", f"{n} períodos importados.")
+
+    def abrir_formulas(self):
+        from views.formulas_indices_dialog import FormulasIndicesDialog
+        dlg = FormulasIndicesDialog(self)
+        dlg.exec()
