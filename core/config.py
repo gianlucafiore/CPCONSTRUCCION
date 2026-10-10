@@ -64,7 +64,21 @@ USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 # La ruta personalizada se elige antes de iniciar la app.
 # No modifica ni migra la base predeterminada.
 _DB_OVERRIDE = os.environ.get("CPCONSTRUCCION_DB", "").strip()
-DB_PATH      = Path(_DB_OVERRIDE).expanduser().resolve() if _DB_OVERRIDE else USER_DATA_DIR / "presupuestos.db"
+_DB_SELECTION_FILE = USER_DATA_DIR / "active_database.txt"
+if not _DB_OVERRIDE and _DB_SELECTION_FILE.is_file():
+    try:
+        _DB_OVERRIDE = _DB_SELECTION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        _DB_OVERRIDE = ""
+if _DB_OVERRIDE:
+    _candidate = Path(_DB_OVERRIDE).expanduser().resolve()
+    # No crear jamás accidentalmente una base vacía a partir de una ruta antigua.
+    if _candidate.is_file():
+        DB_PATH = _candidate
+    else:
+        DB_PATH = USER_DATA_DIR / "presupuestos.db"
+else:
+    DB_PATH = USER_DATA_DIR / "presupuestos.db"
 UPLOADS_DIR  = USER_DATA_DIR / "uploads"
 BACKUPS_DIR  = USER_DATA_DIR / "backups"
 SESSION_FILE = USER_DATA_DIR / ".session"
