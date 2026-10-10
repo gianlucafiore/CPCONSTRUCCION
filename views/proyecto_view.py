@@ -2233,7 +2233,7 @@ class ProyectoView(QWidget):
         hl.setContentsMargins(6, 0, 6, 0)
         hl.setSpacing(0)
 
-        def _tbtn(label, handler, color="white", sep_after=False, menu=None):
+        def _tbtn(label, handler, color="white", sep_after=False, menu=None, general=False):
             b = QPushButton(label)
             b.setCursor(Qt.PointingHandCursor)
             # Hover: pill rounded translúcido, mismo lenguaje visual que las
@@ -2241,9 +2241,9 @@ class ProyectoView(QWidget):
             # — ese patrón se sentía "navegador antiguo" y chocaba con el
             # resto de la app.
             css = (
-                f"QPushButton {{ color:{color}; background:transparent;"
+                f"QPushButton {{ color:{color}; background:{'#41546C' if general else 'transparent'};"
                 f" border:none; border-radius:6px;"
-                f" padding:4px 10px; font-size:11px; font-weight:500; }}"
+                f" padding:4px 10px; font-size:11px; font-weight:{'650' if general else '500'}; }}"
                 f"QPushButton:hover {{ background:rgba(255,255,255,0.12);"
                 f" color:white; }}"
                 f"QPushButton:pressed {{ background:rgba(255,255,255,0.22); }}"
@@ -2264,15 +2264,18 @@ class ProyectoView(QWidget):
             return b
 
         from utils.i18n import tr as _tr
-        _tbtn(_tr("Inicio"),      lambda: self.ir_a_proyectos.emit(), sep_after=True)
-        _tbtn(f"{_tr('Archivo')} ▾", None, sep_after=True, menu=self._build_archivo_menu())
-        _tbtn(_tr("Editar"),      self._editar_proyecto)
-        _tbtn(_tr("Reportes"),    self._abrir_centro_reportes, sep_after=True)
-        _tbtn("Proceso de obra ▾", self._abrir_proceso_obra, sep_after=True)
-        _tbtn("Presupuestación ▾", None, menu=self._build_presupuestacion_menu())
-        _tbtn("Planificación ▾", None, menu=self._build_cronograma_menu())
-        _tbtn("Ejecución y certificados ▾", None, menu=self._build_control_obra_menu())
-        _tbtn("Actualización de precios", self._ir_indices_contractuales, sep_after=True)
+        # Acciones generales: se distinguen de los módulos técnicos.
+        _tbtn(_tr("Inicio"), lambda: self.ir_a_proyectos.emit(), general=True)
+        _tbtn(f"{_tr('Archivo')} ▾", None, menu=self._build_archivo_menu(), general=True)
+        _tbtn(_tr("Editar"), self._editar_proyecto, general=True)
+        _tbtn(_tr("Reportes"), self._abrir_centro_reportes, sep_after=True, general=True)
+        # Secuencia de elaboración y gestión de la obra.
+        _tbtn("Cómputo métrico", self._ir_metrados)
+        _tbtn("Determinación de precio", self._ir_pie)
+        _tbtn("Planificación y programación ▾", None, menu=self._build_cronograma_menu())
+        _tbtn("Control de obra ▾", None, menu=self._build_control_obra_menu())
+        _tbtn("Cálculo de ajustes", self._ir_indices_contractuales, sep_after=True)
+        _tbtn("Documentación ▾", None, menu=self._build_documentacion_menu())
         _tbtn("IA ▾", None, menu=self._build_ia_menu())
 
         hl.addStretch()
@@ -2638,10 +2641,10 @@ class ProyectoView(QWidget):
         bar_hl.setSpacing(4)
 
         from utils.i18n import tr
-        tab_labels = ["ACU", tr("Insumos"), tr("Metrados"), tr("Especificaciones"), tr("Resumen"), tr("Memoria")]
+        tab_labels = ["ACU", tr("Insumos"), "Cómputo", tr("Especificaciones")]
         # Tooltip por pestaña (vacío = sin tooltip). «Metrados» aclara que es
         # la cantidad/medición de obra.
-        tab_tips = ["", "", tr("Cantidades"), "", "", ""]
+        tab_tips = ["", "", tr("Cantidades"), ""]
         self._tab_btns: list[QPushButton] = []
 
         def _tab_btn_style(selected: bool) -> str:
@@ -11226,6 +11229,17 @@ class ProyectoView(QWidget):
         if tab_idx:
             QTimer.singleShot(0, lambda: self._control_view.mostrar_tab(tab_idx))
 
+    def _build_documentacion_menu(self):
+        """Documentos del proyecto, ajenos al análisis de cada partida."""
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.addAction("Resumen general", lambda: self.tabs.setCurrentIndex(4))
+        menu.addAction("Memoria descriptiva", lambda: self.tabs.setCurrentIndex(5))
+        menu.addAction("Volver al análisis de partida", lambda: self.tabs.setCurrentIndex(0))
+        menu.addSeparator()
+        menu.addAction("Proceso de obra", self._abrir_proceso_obra)
+        return menu
+
     def _build_presupuestacion_menu(self):
         """Herramientas de preparación de la oferta, sin botones redundantes."""
         from PySide6.QtWidgets import QMenu
@@ -11249,7 +11263,7 @@ class ProyectoView(QWidget):
             (tr("Cronograma") + " Gantt",   0),
             (tr("Cronograma") + " Valorizado", 1),
             (tr("Insumos") + " - Adquisición", 2),
-            ("Curva S",                     3),
+            ("Curva de inversión prevista", 3),
         ]
         for label, idx in opciones:
             a = QAction(label, self)
