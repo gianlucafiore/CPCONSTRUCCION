@@ -11349,7 +11349,8 @@ class ProyectoView(QWidget):
             "certificacion": lambda: self._ir_control_obra(5),
             "ajustes": self._ir_indices_contractuales,
         }
-        FlujoObraDialog(acciones, self).exec()
+        from core.flujo_obra import estado_etapas
+        FlujoObraDialog(acciones, estado_etapas(self.pid), self).exec()
 
     def _ir_indices_contractuales(self):
         from views.formulas_indices_dialog import FormulasIndicesDialog
