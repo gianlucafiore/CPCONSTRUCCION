@@ -150,7 +150,8 @@ _migrar_paths_legacy()
 # Sembrar la BD del usuario con datos iniciales en el primer arranque.
 # DEBE ir DESPUÉS de _migrar_paths_legacy (que migra desde instalaciones
 # viejas) — solo siembra si AÚN no hay DB del usuario.
-_sembrar_db_si_falta()
+# CPconstruccion: la primera instalación crea una base vacía con init_db().
+# No copiar la biblioteca peruana incluida en el repositorio original.
 
 MONEDAS = {
     'Soles':             {'simbolo': 'S/',    'sep_miles': ',', 'sep_dec': '.'},
@@ -303,4 +304,4 @@ def monedas() -> dict:
 
 
 def moneda_cfg(moneda: str) -> dict:
-    return monedas().get(moneda) or MONEDAS['Soles']
+    return monedas().get(moneda) or MONEDAS['Pesos Argentinos']
