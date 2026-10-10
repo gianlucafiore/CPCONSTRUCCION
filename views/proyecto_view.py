@@ -2268,10 +2268,11 @@ class ProyectoView(QWidget):
         _tbtn(f"{_tr('Archivo')} ▾", None, sep_after=True, menu=self._build_archivo_menu())
         _tbtn(_tr("Editar"),      self._editar_proyecto)
         _tbtn(_tr("Reportes"),    self._abrir_centro_reportes, sep_after=True)
-        _tbtn(_tr("Metrados"),    self._ir_metrados)
+        _tbtn("Proceso de obra ▾", self._abrir_proceso_obra, sep_after=True)
+        _tbtn("Cómputos métricos", self._ir_metrados)
         _tbtn(f"{_tr('Cronogramas')} ▾", None, menu=self._build_cronograma_menu())
         _tbtn("Control de Obra ▾", None, menu=self._build_control_obra_menu())
-        _tbtn(_tr("Fórmula Polinómica"), self._ir_formula)
+        _tbtn("Actualización de precios", self._ir_indices_contractuales)
         _tbtn("Determinación de Precio", self._ir_pie, sep_after=True)
         _tbtn("IA ▾", None, menu=self._build_ia_menu())
 
@@ -11256,8 +11257,9 @@ class ProyectoView(QWidget):
             ("Requerimientos",   0),
             ("Almacén",          1),
             ("Cuaderno de obra", 2),
-            ("Valorizaciones",   3),
+            ("Medición de avance", 3),
             ("Curva S real",     4),
+            ("Certificados",      5),
         ]
         for label, idx in opciones:
             a = QAction(label, self)
@@ -11336,6 +11338,22 @@ class ProyectoView(QWidget):
     def _ayuda_buscar_actualizaciones(self):
         from views.update_dialog import lanzar_check
         lanzar_check(self, silencioso=False)
+
+    def _abrir_proceso_obra(self):
+        from views.flujo_obra_dialog import FlujoObraDialog
+        acciones = {
+            "presupuesto": lambda: self._root_stack.setCurrentIndex(0),
+            "contratos": lambda: self._ir_control_obra(5),
+            "planificacion": lambda: self._ir_cronograma(0),
+            "ejecucion": lambda: self._ir_control_obra(3),
+            "certificacion": lambda: self._ir_control_obra(5),
+            "ajustes": self._ir_indices_contractuales,
+        }
+        FlujoObraDialog(acciones, self).exec()
+
+    def _ir_indices_contractuales(self):
+        from views.formulas_indices_dialog import FormulasIndicesDialog
+        FormulasIndicesDialog(self).exec()
 
     def _ir_formula(self):
         # La fórmula polinómica es de las obras por CONTRATA: en administración
