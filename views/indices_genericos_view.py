@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView,
+    QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QAbstractItemView,
 )
 from core.database import get_db
 from core.indices_genericos import inicializar, guardar_valor
@@ -35,9 +35,13 @@ class IndicesGenericosView(QWidget):
         root.addLayout(actions)
         self.fuentes = QTableWidget(0, 3)
         self.fuentes.setHorizontalHeaderLabels(["ID", "País", "Fuente"])
+        self.fuentes.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.fuentes.setSelectionMode(QAbstractItemView.SingleSelection)
         self.fuentes.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.series = QTableWidget(0, 3)
         self.series.setHorizontalHeaderLabels(["ID", "Fuente", "Serie"])
+        self.series.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.series.setSelectionMode(QAbstractItemView.SingleSelection)
         self.series.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.series.itemSelectionChanged.connect(self.cargar_valores)
         self.valores = QTableWidget(0, 2)
