@@ -44,6 +44,7 @@ class CertificadosPanel(QWidget):
         for nombre, callback in (
             ("Calcular precio", self.ver_precio_comitente),
             ("Registrar certificado", self.registrar_comitente),
+            ("Exportar PDF", self.exportar_comitente),
             ("Cambiar estado", self.estado_comitente),
         ):
             boton = QPushButton(nombre)
@@ -90,7 +91,15 @@ class CertificadosPanel(QWidget):
         sl.addWidget(self.historial, 4)
         self.contratos.currentIndexChanged.connect(self.cargar_historial)
         tabs.addTab(sub, "Subcontratistas")
+        self.periodos.currentIndexChanged.connect(self.ver_avance)
         self.cargar()
+
+    def seleccionar_medicion(self, val_id):
+        """Usada al preparar un certificado desde Medición de avance."""
+        pos = self.periodos.findData(val_id)
+        if pos >= 0:
+            self.periodos.setCurrentIndex(pos)
+        self.ver_avance()
 
     def nuevo_contrato(self):
         from PySide6.QtWidgets import (QDialog, QFormLayout, QDialogButtonBox,
@@ -315,6 +324,47 @@ class CertificadosPanel(QWidget):
             return
         QMessageBox.information(self, "Certificado", "PDF generado en:\\n" + path)
 
+    def exportar_comitente(self):
+        """Imprime únicamente datos del certificado guardado y seleccionado."""
+        from pathlib import Path
+        from PySide6.QtGui import QTextDocument
+        from PySide6.QtPrintSupport import QPrinter
+        from core.certificados_comitente_pdf import html_certificado_comitente
+        fila = self.certificados_cliente.currentRow()
+        if fila < 0:
+            QMessageBox.information(
+                self, "Certificado", "Seleccioná un certificado registrado."
+            )
+            return
+        certificado_id = int(self.certificados_cliente.item(fila, 0).text())
+        db = get_db()
+        try:
+            html = html_certificado_comitente(db, certificado_id)
+        except Exception as exc:
+            QMessageBox.warning(self, "Certificado", str(exc))
+            return
+        finally:
+            db.close()
+        destino, _ = QFileDialog.getSaveFileName(
+            self, "Guardar certificado al comitente",
+            f"certificado-comitente-{certificado_id}.pdf", "PDF (*.pdf)"
+        )
+        if not destino:
+            return
+        try:
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(destino)
+            doc = QTextDocument()
+            doc.setHtml(html)
+            doc.print_(printer)
+            if not Path(destino).is_file() or Path(destino).stat().st_size == 0:
+                raise OSError("No se generó el archivo PDF")
+        except Exception as exc:
+            QMessageBox.warning(self, "Error de exportación", str(exc))
+            return
+        QMessageBox.information(self, "Certificado", "PDF guardado correctamente.")
+
     def cargar_certificados_comitente(self):
         db = get_db()
         try:
@@ -346,6 +396,10 @@ class CertificadosPanel(QWidget):
         finally:
             db.close()
         self.cargar_certificados_comitente()
+        self.precio_comitente.setText(
+            "Certificado registrado: la medición quedó cerrada para preservar "
+            "los importes presentados."
+        )
 
     def estado_comitente(self):
         fila = self.certificados_cliente.currentRow()
