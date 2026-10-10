@@ -15,8 +15,9 @@ PASOS = (
 
 
 class FlujoObraDialog(QDialog):
-    def __init__(self, acciones, parent=None):
+    def __init__(self, acciones, estados=None, parent=None):
         super().__init__(parent)
+        estados = estados or {}
         self.setWindowTitle("Proceso de obra · CPconstruccion")
         self.resize(665, 490)
         root = QVBoxLayout(self)
@@ -42,7 +43,7 @@ class FlujoObraDialog(QDialog):
             )
             horizontal = QHBoxLayout(fila)
             horizontal.setContentsMargins(10, 7, 10, 7)
-            etiqueta = QLabel(f"<b>{numero} · {titulo}</b><br>{descripcion}")
+            etiqueta = QLabel(f"<b>{numero} · {titulo}</b>  ·  {estados.get(clave, 'Sin verificar')}<br>{descripcion}")
             etiqueta.setWordWrap(True)
             etiqueta.setStyleSheet("border:none;")
             horizontal.addWidget(etiqueta, 1)
