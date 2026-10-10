@@ -224,7 +224,7 @@ class ControlObraView(QWidget):
         # derivados (avance/curva S) → cerrar (liquidación).
         # «Liquidación» queda para una actualización mayor (oculta en esta versión).
         self._tabs = ["Requerimientos", "Almacén", "Cuaderno", "Valorizaciones",
-                      "Curva S real"]
+                      "Curva S real", "Certificados"]
         self._tab_btns: list[QPushButton] = []
 
         # Índices funcionales (independientes del orden de las pestañas).
@@ -233,6 +233,7 @@ class ControlObraView(QWidget):
         self._idx_almacen = self._tabs.index("Almacén")
         self._idx_valo = self._tabs.index("Valorizaciones")
         self._idx_curva = self._tabs.index("Curva S real")
+        self._idx_cert = self._tabs.index("Certificados")
 
         for i, lbl in enumerate(self._tabs):
             btn = QPushButton(lbl)
@@ -259,6 +260,8 @@ class ControlObraView(QWidget):
         self._req_panel = _RequerimientosPanel(self.pid, self._proy, self)
         self._almacen_panel = _AlmacenPanel(self.pid, self._proy, self)
         self._curva_panel = _CurvaSRealPanel(self.pid, self._proy, self)
+        from views.certificados_panel import CertificadosPanel
+        self._cert_panel = CertificadosPanel(self.pid, self)
         for i, nombre in enumerate(self._tabs):
             if i == self._idx_valo:
                 self._stack.addWidget(self._valo_panel)
@@ -270,6 +273,8 @@ class ControlObraView(QWidget):
                 self._stack.addWidget(self._almacen_panel)
             elif i == self._idx_curva:
                 self._stack.addWidget(self._curva_panel)
+            elif i == self._idx_cert:
+                self._stack.addWidget(self._cert_panel)
             else:
                 self._stack.addWidget(self._placeholder(nombre))
         vl.addWidget(self._stack, stretch=1)
@@ -294,6 +299,8 @@ class ControlObraView(QWidget):
             self._almacen_panel.cargar()
         elif idx == self._idx_curva:
             self._curva_panel.cargar()
+        elif idx == self._idx_cert:
+            self._cert_panel.cargar()
 
     def _placeholder(self, nombre: str) -> QWidget:
         w = QWidget()
