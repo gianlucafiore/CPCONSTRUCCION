@@ -146,7 +146,7 @@ class CronogramaView(QWidget):
         self._stack.setStyleSheet(f"background:{SILVER_100};")
 
         self._tabs = ["Diagrama Gantt", "Cronograma Valorizado",
-                       "Adquisición de Insumos", "Curva S"]
+                       "Adquisición de Insumos", "Curva de inversión"]
         self._tab_btns: list[QPushButton] = []
 
         def _tab_style(sel: bool) -> str:
@@ -9366,7 +9366,7 @@ class CurvaSWidget(QWidget):
         self.scene.addItem(line_x)
 
         # Título
-        ttl = QGraphicsTextItem("CURVA S — Avance financiero acumulado")
+        ttl = QGraphicsTextItem("CURVA DE INVERSIÓN — Avance financiero acumulado")
         f = QFont(); f.setPointSize(11); f.setBold(True); ttl.setFont(f)
         ttl.setDefaultTextColor(QColor(SLATE_700))
         ttl.setPos(margin_l, 6)
