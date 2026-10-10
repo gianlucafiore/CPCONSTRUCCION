@@ -2,7 +2,7 @@
 """Vista preliminar de liquidaciones contractuales, sin emitir facturas."""
 from __future__ import annotations
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QComboBox, QInputDialog)
+    QLabel, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QComboBox, QInputDialog, QFileDialog)
 from core.certificados_contratos import certificado_subcontrato
 from core.database import get_db
 from core.valorizacion import get_valorizacion_detalle
@@ -63,6 +63,7 @@ class CertificadosPanel(QWidget):
         bar.addWidget(self.contratos, 1)
         for nombre, accion in (("+ Contrato", self.nuevo_contrato),
                               ("Emitir certificado", self.certificar),
+                              ("Exportar PDF", self.exportar_certificado),
                               ("Actualizar", self.cargar_contratos)):
             btn = QPushButton(nombre)
             btn.clicked.connect(accion)
@@ -213,6 +214,83 @@ class CertificadosPanel(QWidget):
                 it = QTableWidgetItem(str(value if value is not None else ""))
                 it.setFlags(it.flags() & ~__import__('PySide6.QtCore', fromlist=['Qt']).Qt.ItemIsEditable)
                 self.tabla.setItem(i, j, it)
+
+    def exportar_certificado(self):
+        """Genera el comprobante del certificado seleccionado, sin editarlo."""
+        from html import escape
+        from PySide6.QtGui import QTextDocument
+        from PySide6.QtPrintSupport import QPrinter
+        cid = self.contratos.currentData()
+        fila = self.historial.currentRow()
+        if cid is None or fila < 0:
+            QMessageBox.information(self, "Certificado",
+                "Seleccioná una fila del historial para exportar.")
+            return
+        numero_item = self.historial.item(fila, 0)
+        if numero_item is None:
+            return
+        numero = int(numero_item.text())
+        db = get_db()
+        try:
+            cabecera = db.execute(
+                "SELECT contratista,rubro,monto,anticipo,recupero_pct,reparo_pct "
+                "FROM contratos_subcontrato WHERE id=? AND proyecto_id=?",
+                (cid, self.pid)
+            ).fetchone()
+            cert = db.execute(
+                "SELECT numero,fecha,avance_acumulado,bruto,recupero,reparo,neto "
+                "FROM certificados_subcontrato WHERE contrato_id=? AND numero=?",
+                (cid, numero)
+            ).fetchone()
+        finally:
+            db.close()
+        if not cabecera or not cert:
+            QMessageBox.warning(self, "Certificado", "No se encontró el registro.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Exportar certificado",
+            f"certificado-subcontrato-{cid}-{numero}.pdf", "PDF (*.pdf)")
+        if not path:
+            return
+        c = [escape(str(x)) for x in cabecera]
+        v = [escape(str(x)) for x in cert]
+        conceptos = [
+            ("Importe bruto del período", v[3]),
+            ("Recuperación de anticipo", "- " + v[4]),
+            ("Fondo de reparo", "- " + v[5]),
+            ("Neto a liquidar", v[6]),
+        ]
+        tabla = "".join(
+            "<tr><td style='padding:7px;border-bottom:1px solid #ddd;'>"
+            + escape(nombre) + "</td><td align='right' style='padding:7px;"
+            "border-bottom:1px solid #ddd;'>$ " + valor + "</td></tr>"
+            for nombre, valor in conceptos
+        )
+        html = (
+            "<html><body style='font-family:sans-serif;font-size:11pt;'>"
+            "<h2>Certificado de avance de subcontrato</h2>"
+            "<p>Comprobante contractual. No constituye factura ni recibo de pago.</p>"
+            f"<p><b>Contratista:</b> {c[0]}<br><b>Rubro:</b> {c[1]}<br>"
+            f"<b>Monto del contrato:</b> $ {c[2]}<br>"
+            f"<b>Certificado N.º:</b> {v[0]}<br><b>Fecha:</b> {v[1]}<br>"
+            f"<b>Avance acumulado:</b> {v[2]} %</p>"
+            f"<table width='100%' cellspacing='0'>{tabla}</table>"
+            "<p>Los importes son los registrados al emitir el certificado; "
+            "verificar contrato, impuestos y documentación respaldatoria.</p>"
+            "<br><br><p>Conformidad contratista: ________________________</p>"
+            "<p>Conformidad contratante: ________________________</p>"
+            "</body></html>"
+        )
+        try:
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(path)
+            document = QTextDocument()
+            document.setHtml(html)
+            document.print_(printer)
+        except Exception as exc:
+            QMessageBox.warning(self, "Error PDF", str(exc))
+            return
+        QMessageBox.information(self, "Certificado", "PDF generado en:\\n" + path)
 
     def ver_precio_comitente(self):
         vid = self.periodos.currentData()
