@@ -93,27 +93,6 @@ def get_product_icon_path() -> Path | None:
     return None
 
 
-def _sembrar_db_si_falta() -> None:
-    """Primer arranque: si NO existe ``DB_PATH`` y SÍ existe la base semilla
-    ``BASE_DIR/presupuestos_seed.db`` (parte del producto, bundleada con
-    PyInstaller), la copia al destino del usuario. Idempotente: si la BD
-    del usuario ya existe, no hace nada (no sobrescribe sus datos).
-
-    Esto da al usuario una BD inicial con catálogos pre-cargados (INEI,
-    biblioteca CAPECO, etc.) en lugar de empezar con tablas vacías.
-    """
-    if DB_PATH.exists():
-        return
-    seed = BASE_DIR / "presupuestos_seed.db"
-    if not seed.exists():
-        return
-    try:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(seed, DB_PATH)
-    except OSError:
-        pass
-
-
 def _migrar_paths_legacy() -> None:
     """Migración one-shot de instalaciones anteriores.
 
@@ -147,11 +126,8 @@ def _migrar_paths_legacy() -> None:
 
 
 _migrar_paths_legacy()
-# Sembrar la BD del usuario con datos iniciales en el primer arranque.
-# DEBE ir DESPUÉS de _migrar_paths_legacy (que migra desde instalaciones
-# viejas) — solo siembra si AÚN no hay DB del usuario.
-# CPconstruccion: la primera instalación crea una base vacía con init_db().
-# No copiar la biblioteca peruana incluida en el repositorio original.
+# La estructura SQLite se crea con core.database.init_db().
+# No se importa contenido económico extranjero en instalaciones nuevas.
 
 MONEDAS = {
     'Soles':             {'simbolo': 'S/',    'sep_miles': ',', 'sep_dec': '.'},
