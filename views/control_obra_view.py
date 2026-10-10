@@ -223,7 +223,7 @@ class ControlObraView(QWidget):
         # Orden del flujo de obra: requerir → registrar (cuaderno) → valorizar →
         # derivados (avance/curva S) → cerrar (liquidación).
         # «Liquidación» queda para una actualización mayor (oculta en esta versión).
-        self._tabs = ["Requerimientos", "Almacén", "Cuaderno", "Valorizaciones",
+        self._tabs = ["Requerimientos", "Almacén", "Cuaderno", "Medición de avance",
                       "Curva S real", "Certificados"]
         self._tab_btns: list[QPushButton] = []
 
@@ -231,7 +231,7 @@ class ControlObraView(QWidget):
         self._idx_req = self._tabs.index("Requerimientos")
         self._idx_cuaderno = self._tabs.index("Cuaderno")
         self._idx_almacen = self._tabs.index("Almacén")
-        self._idx_valo = self._tabs.index("Valorizaciones")
+        self._idx_valo = self._tabs.index("Medición de avance")
         self._idx_curva = self._tabs.index("Curva S real")
         self._idx_cert = self._tabs.index("Certificados")
 
@@ -355,14 +355,14 @@ class ControlObraView(QWidget):
 
 
 class _ValorizacionesPanel(QWidget):
-    """Pestaña Valorizaciones: lista de períodos + grilla de avance por partida.
+    """Pestaña Medición de avance: períodos + grilla de cantidades ejecutadas.
     Solo se edita la columna «Metr. actual»; el resto se deriva."""
 
     def pdf_rapido(self, path: str):
         """Ctrl+P: la valorización a la vista, sin diálogos."""
         if not self._val_id:
             QMessageBox.information(self, "Imprimir",
-                                    "No hay ninguna valorización a la vista.")
+                                    "No hay ninguna medición de avance seleccionada.")
             return None
         from core import pdf_reports
         pdf_reports.generar_valorizacion_pdf(self._val_id, path)
@@ -389,10 +389,26 @@ class _ValorizacionesPanel(QWidget):
             " border-radius:6px; padding:6px 10px; font-size:11px;")
         self.aviso.hide()
         v.addWidget(self.aviso)
+        guia = QLabel(
+            "<b>1. Medí la obra ejecutada</b> · En esta grilla cargás las "
+            "cantidades realizadas durante cada período. El programa calcula "
+            "lo anterior, lo actual y lo acumulado usando los precios del presupuesto. "
+            "<br><b>2. Prepará el certificado</b> · En la pestaña "
+            "<b>Certificados</b> revisás ese avance, aplicás la Determinación "
+            "de Precio y preparás el importe a presentar al comitente."
+            "<br><b>3. Facturación y cobranza</b> · La medición no significa "
+            "que el comitente la haya aprobado, facturado o pagado."
+        )
+        guia.setWordWrap(True)
+        guia.setStyleSheet(
+            "QLabel { background:#F1F6FB; border:1px solid #D9E4F0;"
+            "border-radius:5px; padding:8px; font-size:11px; color:#273445; }"
+        )
+        v.addWidget(guia)
 
         # Toolbar: selector de valorización + acciones
         tb = QHBoxLayout(); tb.setSpacing(6)
-        lbl = QLabel("Valorización:")
+        lbl = QLabel("Medición:")
         lbl.setStyleSheet(f"color:{SLATE_700}; font-size:12px; font-weight:600;"
                           " background:transparent; border:none;")
         tb.addWidget(lbl)
@@ -432,13 +448,14 @@ class _ValorizacionesPanel(QWidget):
             b.clicked.connect(fn)
             return b
 
-        self.btn_nueva = _btn("+ Nueva valorización", self._nueva, primary=True)
+        self.btn_nueva = _btn("+ Nueva medición", self._nueva, primary=True)
+        self.btn_nueva.setToolTip("Agrega un período para medir las cantidades ejecutadas; no emite un certificado.")
         tb.addWidget(self.btn_nueva)
-        self.btn_cerrar = _btn("Cerrar", self._cerrar_reabrir)
+        self.btn_cerrar = _btn("Cerrar medición", self._cerrar_reabrir)
         tb.addWidget(self.btn_cerrar)
         self.btn_elim = _btn("Eliminar", self._eliminar)
         tb.addWidget(self.btn_elim)
-        self.btn_reporte = _btn("📄 Reporte", lambda: None)
+        self.btn_reporte = _btn("Exportar medición", lambda: None)
         _rm = QMenu(self.btn_reporte)
         _rm.addAction("PDF", lambda: self._reporte('pdf'))
         _rm.addAction("Excel (.xlsx)", lambda: self._reporte('xlsx'))
@@ -504,7 +521,7 @@ class _ValorizacionesPanel(QWidget):
 
         # Estado vacío (sin presupuesto)
         self.lbl_vacio = QLabel(
-            "Para valorizar necesitas el presupuesto del proyecto.\n"
+            "Para medir el avance necesitás el presupuesto del proyecto.\n"
             "Impórtalo o créalo desde la pestaña «Presupuesto».")
         self.lbl_vacio.setAlignment(Qt.AlignCenter)
         self.lbl_vacio.setStyleSheet(
