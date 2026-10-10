@@ -2692,7 +2692,7 @@ class ProyectoView(QWidget):
         )
         self.tabs.addTab(self._make_tab_acu(),      "ACU")
         self.tabs.addTab(self._make_tab_insumos(),  "Insumos")
-        self.tabs.addTab(self._make_tab_metrados(), "Metrados")
+        self.tabs.addTab(self._make_tab_metrados(), "Cómputos")
         self.tabs.addTab(self._make_tab_spec(),     "Especificaciones")
         self.tabs.addTab(self._make_tab_resumen(),  "Resumen")
         self.tabs.addTab(self._make_tab_memoria(),  "Memoria")
