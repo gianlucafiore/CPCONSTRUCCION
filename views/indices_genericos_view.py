@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QAbstractItemView,
+    QTableWidgetItem, QInputDialog, QMessageBox, QHeaderView, QAbstractItemView, QFileDialog,
 )
 from core.database import get_db
-from core.indices_genericos import inicializar, guardar_valor
+from core.indices_genericos import inicializar, guardar_valor, importar_csv
 
 
 class IndicesGenericosView(QWidget):
@@ -26,6 +26,7 @@ class IndicesGenericosView(QWidget):
             ("Nueva fuente", self.nueva_fuente),
             ("Nueva serie", self.nueva_serie),
             ("Agregar valor mensual", self.nuevo_valor),
+            ("Importar CSV", self.importar_archivo),
             ("Actualizar vista", self.cargar),
         ):
             btn = QPushButton(name)
@@ -161,3 +162,26 @@ class IndicesGenericosView(QWidget):
         finally:
             db.close()
         self.cargar()
+
+    def importar_archivo(self):
+        sid = self._seleccion(self.series)
+        if sid is None:
+            QMessageBox.information(self, "Serie", "Seleccioná una serie primero.")
+            return
+        ruta, _ = QFileDialog.getOpenFileName(
+            self, "Importar valores mensuales", "", "CSV (*.csv)"
+        )
+        if not ruta:
+            return
+        db = get_db()
+        try:
+            cantidad = importar_csv(db, sid, ruta)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            QMessageBox.warning(self, "Error de importación", str(e))
+            return
+        finally:
+            db.close()
+        self.cargar()
+        QMessageBox.information(self, "Importación", f"Se importaron {cantidad} períodos.")

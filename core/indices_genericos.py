@@ -129,3 +129,47 @@ def actualizar_importe(importe, factor) -> Decimal:
     if not monto.is_finite() or not f.is_finite() or monto < 0 or f < 0:
         raise ValueError("Monto o factor inválido")
     return (monto * f).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def importar_csv(conn: Connection, serie_id: int, ruta: str) -> int:
+    """Importa CSV con encabezados periodo,valor (UTF-8 con BOM opcional).
+
+    Valida todas las filas antes de escribir, para evitar importaciones
+    parciales; la transacción la confirma el llamador. Delimitador ; o ,.
+    """
+    import csv
+    from pathlib import Path
+    import re
+    texto = Path(ruta).read_text(encoding="utf-8-sig")
+    if not texto.strip():
+        raise ValueError("El archivo CSV está vacío")
+    try:
+        dialecto = csv.Sniffer().sniff(texto[:4096], delimiters=",;")
+        filas = list(csv.DictReader(texto.splitlines(), dialect=dialecto))
+    except csv.Error as exc:
+        raise ValueError(f"CSV inválido: {exc}") from exc
+    if not filas:
+        raise ValueError("El CSV no tiene filas de valores")
+    if not {'periodo', 'valor'}.issubset(filas[0]):
+        raise ValueError("Se requieren columnas 'periodo' y 'valor'")
+    pendientes = []
+    vistos = set()
+    for n, fila in enumerate(filas, start=2):
+        periodo = (fila.get('periodo') or '').strip()
+        valor = (fila.get('valor') or '').strip()
+        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", periodo):
+            raise ValueError(f"Fila {n}: período inválido")
+        if periodo in vistos:
+            raise ValueError(f"Fila {n}: período repetido")
+        vistos.add(periodo)
+        # En CSV separado por punto y coma, se admite coma decimal.
+        numero = Decimal(valor.replace(',', '.'))
+        if not numero.is_finite() or numero <= 0:
+            raise ValueError(f"Fila {n}: valor inválido")
+        pendientes.append((serie_id, periodo, str(numero)))
+    conn.executemany(
+        "INSERT INTO valores_indices(serie_id,periodo,valor) VALUES(?,?,?) "
+        "ON CONFLICT(serie_id,periodo) DO UPDATE SET valor=excluded.valor",
+        pendientes,
+    )
+    return len(pendientes)
