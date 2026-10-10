@@ -811,12 +811,8 @@ class MainWindow(QMainWindow):
                 v.volver.connect(self._ir_a_dashboard)
                 return v
             case "indices_inei":
-                from views.indices_inei_view import IndicesINEIView
-                # El proyecto desde el que se entró, para que el diccionario
-                # pueda acotarse a sus insumos.
-                ctx = getattr(self, '_pid_contexto_indices', None)
-                return IndicesINEIView(ctx[0], ctx[1]) if ctx \
-                    else IndicesINEIView()
+                from views.indices_genericos_view import IndicesGenericosView
+                return IndicesGenericosView()
             case "ia":
                 from views.ia_view import IAView
                 return IAView()
@@ -1342,7 +1338,7 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         # Estilo coherente con el resto (heredado del QSS global de QMenu)
         a_ins = QAction(icon("insumos"), "Catálogo de Insumos", self)
-        a_ins.setStatusTip("6950 recursos con precios e índices INEI")
+        a_ins.setStatusTip("Catálogo de insumos y precios")
         a_ins.triggered.connect(self._ir_a_recursos)
         menu.addAction(a_ins)
 
@@ -1352,8 +1348,8 @@ class MainWindow(QMainWindow):
         menu.addAction(a_bib)
 
         menu.addSeparator()
-        a_inei = QAction(icon("rep-resumen"), "Índices Unificados INEI", self)
-        a_inei.setStatusTip("Histórico mensual de los 72 índices oficiales")
+        a_inei = QAction(icon("rep-resumen"), "Índices y actualización de costos", self)
+        a_inei.setStatusTip("Series y valores mensuales configurables por fuente y país")
         a_inei.triggered.connect(self._ir_a_indices_inei)
         menu.addAction(a_inei)
 
