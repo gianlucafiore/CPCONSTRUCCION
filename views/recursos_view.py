@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QSizePolicy, QStyledItemDelegate, QStyle, QStyleOptionViewItem, QApplication,
 )
 
-from core.database import get_db, _siguiente_codigo_inei
+from core.database import get_db, _siguiente_codigo_inei, siguiente_codigo_recurso
 from views._catalogo_base import CatalogoTablaMixin, UnidadSuperindiceMixin
 from core.config import TIPOS_RECURSO, INEI_DEFAULT
 from utils.formatting import fmt, parse_num, moneda_defecto
@@ -160,14 +160,14 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
             self.cmb_inei.addItem(f"{cod} — {desc}", cod)
         self.cmb_inei.addItem("Otro (ingresar manualmente)", "OTRO")
         self.cmb_inei.currentIndexChanged.connect(self._on_inei_change)
-        form.addRow("Índice INEI *:", self.cmb_inei)
+        self.cmb_inei.setCurrentIndex(0)  # índice legado no utilizado
 
         self.inp_inei_libre = QLineEdit()
         self.inp_inei_libre.setPlaceholderText("Código de 2 dígitos, ej: 15")
         self.inp_inei_libre.setMaxLength(2)
         self.inp_inei_libre.setVisible(False)
         self.inp_inei_libre.textChanged.connect(self._auto_codigo)
-        form.addRow("", self.inp_inei_libre)
+        
 
         # Código + bloqueo manual
         cod_row = QHBoxLayout()
@@ -194,7 +194,8 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
         cod_row.addWidget(self.btn_codigo_manual)
         wcod = QWidget()
         wcod.setLayout(cod_row)
-        form.addRow("Código:", wcod)
+        form.addRow("Código interno:", wcod)
+        wcod.hide()
         self._codigo_manual = False
 
         # Descripción
@@ -278,10 +279,10 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
     def _auto_codigo(self):
         if self._codigo_manual:
             return
-        inei = self._inei_actual()
+        inei = self._inei_actual() or "99"
         if len(inei) == 2 and inei.isdigit():
             conn = get_db()
-            self.inp_codigo.setText(_siguiente_codigo_inei(conn, inei))
+            self.inp_codigo.setText(siguiente_codigo_recurso(conn))
             conn.close()
         else:
             if not self.es_edicion:
@@ -320,11 +321,9 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
             self.inp_desc.setFocus()
             return
 
-        inei = self._inei_actual()
-        if not (len(inei) == 2 and inei.isdigit()):
-            self.lbl_err.setText("El Índice INEI es obligatorio (2 dígitos).")
-            self.cmb_inei.setFocus()
-            return
+        inei = ""
+        # Índice económico legado: opcional en CPconstruccion.
+        inei = inei if len(inei) == 2 and inei.isdigit() else ""
 
         tipo = self.cmb_tipo.currentData()
         unidad = self.inp_unidad.text().strip()
@@ -333,7 +332,7 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
 
         conn = get_db()
         if not codigo:
-            codigo = _siguiente_codigo_inei(conn, inei)
+            codigo = siguiente_codigo_recurso(conn)
 
         # Para overhead (% MO / % MAT / % EQ) el precio debe ser 0
         if unidad.startswith('%'):
@@ -702,8 +701,8 @@ class RecursosView(CatalogoTablaMixin, QWidget):
         if not r:
             conn.close()
             return
-        inei = r['indice_inei'] or (r['codigo'][:2] if r['codigo'] else '39')
-        nuevo_cod = _siguiente_codigo_inei(conn, inei)
+        inei = r['indice_inei'] or ''
+        nuevo_cod = siguiente_codigo_recurso(conn)
         conn.execute(
             "INSERT INTO recursos (codigo, descripcion, tipo, unidad, precio, indice_inei) "
             "VALUES (?,?,?,?,?,?)",

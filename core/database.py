@@ -1309,6 +1309,22 @@ def partidas_pu_inconsistente(conn, pid: int) -> list[dict]:
     return out
 
 
+def siguiente_codigo_recurso(conn) -> str:
+    """Genera códigos propios de CPconstruccion, ajenos a los índices INEI.
+
+    El rango 9900001..9999999 es transitorio para conservar la longitud del
+    código y la compatibilidad con los proyectos y catálogos existentes.
+    """
+    rows = conn.execute(
+        "SELECT codigo FROM recursos WHERE codigo >= '9900000' AND codigo <= '9999999'"
+    ).fetchall()
+    usados = {int(r[0]) for r in rows if str(r[0]).isdigit() and len(str(r[0])) == 7}
+    siguiente = max(9900000, max(usados, default=9900000)) + 1
+    if siguiente > 9999999:
+        raise ValueError("Se agotó el rango de códigos internos de recursos")
+    return str(siguiente)
+
+
 def _siguiente_codigo_inei(conn, indice: str) -> str:
     """Retorna el siguiente código de 7 dígitos para un índice INEI dado (IU(2)+seq(5))."""
     indice = str(indice).zfill(2)[:2]

@@ -76,7 +76,7 @@ class PaisForm(QWidget):
         # Estado inicial: lo guardado; si no hay nada, el país propuesto.
         guardado = paises.pais_configurado()
         # Solo la bienvenida propone el país del sistema; Configuración muestra
-        # lo que rige (Perú mientras no se elija otro).
+        # lo que rige (Argentina mientras no se elija otro).
         propuesto = paises.detectar_pais() if proponer_detectado else paises.pais_actual()
         self._poner_pais(iso or guardado or propuesto)
         if guardado and not iso:
@@ -142,13 +142,12 @@ class PaisBienvenidaDialog(QDialog):
         titulo.setStyleSheet(f"color:{SLATE_700}; font-size:16px; font-weight:700;")
         vl.addWidget(titulo)
         nota = QLabel(
-            "Con esto IngePresupuestos ajusta la moneda, el nombre de la "
-            "identificación tributaria (RUC, NIT, RUT…) y el impuesto de los "
+            "Con esto CPconstruccion ajusta la moneda, el nombre de la "
+            "identificación tributaria (CUIT) y el impuesto de los "
             "proyectos nuevos. Puedes cambiarlo cuando quieras en "
             "Configuración → País.\n\n"
             "Cambiar la moneda solo cambia el símbolo y los separadores: los "
-            "precios no se convierten, y los de la biblioteca de ejemplo son "
-            "referenciales del Perú.")
+            "precios no se convierten. La base inicial no incorpora precios de referencia.")
         nota.setWordWrap(True)
         nota.setStyleSheet(f"color:{SLATE_500}; font-size:12px;")
         vl.addWidget(nota)

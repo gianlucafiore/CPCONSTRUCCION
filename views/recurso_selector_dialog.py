@@ -14,7 +14,7 @@ from PySide6.QtGui import (QColor, QFont, QRegularExpressionValidator,
                           QAction)
 
 from core.config import DB_PATH, TIPOS_RECURSO
-from core.database import (get_db, _rn, _recalcular_pu, _siguiente_codigo_inei,
+from core.database import (get_db, _rn, _recalcular_pu, _siguiente_codigo_inei, siguiente_codigo_recurso,
                            precio_recurso_en_proyecto, get_decimales_cant_acu,
                            # Regla crítica del ACU — definición única en
                            # core.database; acá solo se les da el nombre local.
@@ -342,7 +342,7 @@ class RecursoSelectorDialog(QDialog):
 
         lbl_inei = QLabel("Índice INEI *:")
         lbl_inei.setStyleSheet("font-weight:600;")
-        form.addRow(lbl_inei, self.cmb_n_inei)
+        # Clasificación INEI legada, fuera del formulario argentino.
 
         # Campo libre para índice manual (visible solo con "Otro")
         self.inp_n_inei = QLineEdit()
@@ -350,7 +350,7 @@ class RecursoSelectorDialog(QDialog):
         self.inp_n_inei.setMaxLength(2)
         self.inp_n_inei.setVisible(False)
         self.inp_n_inei.textChanged.connect(self._auto_codigo_nuevo)
-        form.addRow("", self.inp_n_inei)
+        
 
         # Código generado automáticamente (solo lectura)
         self.inp_n_codigo = QLineEdit()
@@ -360,7 +360,7 @@ class RecursoSelectorDialog(QDialog):
         self.inp_n_codigo.setStyleSheet(
             "QLineEdit { background:#F5F5F5; color:#667885; border-radius:4px; padding:2px 6px; }"
         )
-        form.addRow("Código INEI:", self.inp_n_codigo)
+        
 
         self.inp_n_unidad = QLineEdit()
         self.inp_n_unidad.setPlaceholderText("hh, m³, kg, glb, …")
@@ -663,20 +663,17 @@ class RecursoSelectorDialog(QDialog):
             return
 
         inei = self._inei_actual()
-        if not inei or len(inei) != 2:
-            self.lbl_n_error.setText("El Índice INEI es obligatorio (2 dígitos).")
-            if hasattr(self, 'cmb_n_inei'):
-                self.cmb_n_inei.setFocus()
-            return
+        # El índice INEI no es obligatorio para insumos argentinos.
+        inei = ""
 
         tipo   = self.cmb_n_tipo.currentData()
         unidad = self.inp_n_unidad.text().strip()
         precio = parse_num(self.inp_n_precio.text())
-        codigo = self.inp_n_codigo.text().strip()
+        codigo = ""  # siempre autogenerado para el alta
 
         conn = get_db()
         if not codigo:
-            codigo = _siguiente_codigo_inei(conn, inei)
+            codigo = siguiente_codigo_recurso(conn)
 
         cur = conn.execute(
             "INSERT INTO recursos "
@@ -786,11 +783,11 @@ class RecursoSelectorDialog(QDialog):
         if not r:
             conn.close()
             return
-        inei = r['indice_inei'] or (r['codigo'][:2] if r['codigo'] else '39')
+        inei = r['indice_inei'] or ''
         cur = conn.execute(
             "INSERT INTO recursos (codigo, descripcion, tipo, unidad, precio, indice_inei) "
             "VALUES (?,?,?,?,?,?)",
-            (_siguiente_codigo_inei(conn, inei), r['descripcion'] + " (copia)",
+            (siguiente_codigo_recurso(conn), r['descripcion'] + " (copia)",
              r['tipo'], r['unidad'], r['precio'], inei)
         )
         nuevo_id = cur.lastrowid
