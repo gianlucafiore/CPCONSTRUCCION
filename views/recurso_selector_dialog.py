@@ -14,7 +14,7 @@ from PySide6.QtGui import (QColor, QFont, QRegularExpressionValidator,
                           QAction)
 
 from core.config import DB_PATH, TIPOS_RECURSO
-from core.database import (get_db, _rn, _recalcular_pu, _siguiente_codigo_inei,
+from core.database import (get_db, _rn, _recalcular_pu, _siguiente_codigo_inei, siguiente_codigo_recurso,
                            precio_recurso_en_proyecto, get_decimales_cant_acu,
                            # Regla crítica del ACU — definición única en
                            # core.database; acá solo se les da el nombre local.
@@ -673,7 +673,7 @@ class RecursoSelectorDialog(QDialog):
 
         conn = get_db()
         if not codigo:
-            codigo = _siguiente_codigo_inei(conn, "99")
+            codigo = siguiente_codigo_recurso(conn)
 
         cur = conn.execute(
             "INSERT INTO recursos "
@@ -783,11 +783,11 @@ class RecursoSelectorDialog(QDialog):
         if not r:
             conn.close()
             return
-        inei = r['indice_inei'] or (r['codigo'][:2] if r['codigo'] else '39')
+        inei = r['indice_inei'] or ''
         cur = conn.execute(
             "INSERT INTO recursos (codigo, descripcion, tipo, unidad, precio, indice_inei) "
             "VALUES (?,?,?,?,?,?)",
-            (_siguiente_codigo_inei(conn, inei), r['descripcion'] + " (copia)",
+            (siguiente_codigo_recurso(conn), r['descripcion'] + " (copia)",
              r['tipo'], r['unidad'], r['precio'], inei)
         )
         nuevo_id = cur.lastrowid
