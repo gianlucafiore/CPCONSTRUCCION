@@ -26,4 +26,5 @@ jobs:
             tests/test_indices_csv.py \
             tests/test_certificados_contratos.py \
             tests/test_codigo_recurso_argentina.py \
-            tests/test_plantillas_argentina.py
+            tests/test_plantillas_argentina.py \
+            tests/test_certificados_comitente_registro.py
