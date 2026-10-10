@@ -80,7 +80,7 @@ class PaisForm(QWidget):
         propuesto = paises.detectar_pais() if proponer_detectado else paises.pais_actual()
         self._poner_pais(iso or guardado or propuesto)
         if guardado and not iso:
-            self.cmb_moneda.setCurrentText(paises._cfg('moneda_defecto', 'Soles'))
+            self.cmb_moneda.setCurrentText(paises._cfg('moneda_defecto', 'Pesos Argentinos'))
             self.inp_etiqueta.setText(paises.etiqueta_tributaria())
             nombre, pct = paises.impuesto()
             self.inp_imp_nombre.setText(nombre)
