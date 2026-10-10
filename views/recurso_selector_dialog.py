@@ -342,9 +342,7 @@ class RecursoSelectorDialog(QDialog):
 
         lbl_inei = QLabel("Índice INEI *:")
         lbl_inei.setStyleSheet("font-weight:600;")
-        form.addRow(lbl_inei, self.cmb_n_inei)
-        lbl_inei.hide()
-        self.cmb_n_inei.hide()
+        # Clasificación INEI legada, fuera del formulario argentino.
 
         # Campo libre para índice manual (visible solo con "Otro")
         self.inp_n_inei = QLineEdit()
@@ -352,7 +350,7 @@ class RecursoSelectorDialog(QDialog):
         self.inp_n_inei.setMaxLength(2)
         self.inp_n_inei.setVisible(False)
         self.inp_n_inei.textChanged.connect(self._auto_codigo_nuevo)
-        form.addRow("", self.inp_n_inei)
+        
 
         # Código generado automáticamente (solo lectura)
         self.inp_n_codigo = QLineEdit()
@@ -362,8 +360,7 @@ class RecursoSelectorDialog(QDialog):
         self.inp_n_codigo.setStyleSheet(
             "QLineEdit { background:#F5F5F5; color:#667885; border-radius:4px; padding:2px 6px; }"
         )
-        form.addRow("Código interno:", self.inp_n_codigo)
-        self.inp_n_codigo.hide()
+        
 
         self.inp_n_unidad = QLineEdit()
         self.inp_n_unidad.setPlaceholderText("hh, m³, kg, glb, …")
@@ -672,7 +669,7 @@ class RecursoSelectorDialog(QDialog):
         tipo   = self.cmb_n_tipo.currentData()
         unidad = self.inp_n_unidad.text().strip()
         precio = parse_num(self.inp_n_precio.text())
-        codigo = self.inp_n_codigo.text().strip()
+        codigo = ""  # siempre autogenerado para el alta
 
         conn = get_db()
         if not codigo:
