@@ -9,6 +9,43 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Una base alternativa debe seleccionarse antes de importar core.config,
+# ya que varios módulos resuelven DB_PATH durante la importación.
+def _seleccionar_base_por_argumento():
+    import argparse
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--database", metavar="ARCHIVO")
+    parser.add_argument("--help-db", action="store_true")
+    opts, rest = parser.parse_known_args(sys.argv[1:])
+    if opts.help_db:
+        print("CPconstruccion: --database RUTA abre una base SQLite existente. "
+              "Para otra base, cerrá la aplicación y reiniciá con la ruta nueva.")
+        sys.exit(0)
+    if opts.database:
+        ruta = Path(opts.database).expanduser().resolve()
+        if not ruta.is_file():
+            parser.error("La base seleccionada no existe; no se crea automáticamente")
+        import sqlite3
+        try:
+            db = sqlite3.connect(ruta.as_uri() + "?mode=ro", uri=True)
+            try:
+                if db.execute("PRAGMA quick_check").fetchone()[0] != "ok":
+                    parser.error("La base seleccionada no pasó el control de integridad")
+                tablas = {r[0] for r in db.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )}
+                if "proyectos" not in tablas:
+                    parser.error("La base elegida no es compatible con CPconstruccion")
+            finally:
+                db.close()
+        except sqlite3.Error as exc:
+            parser.error(f"No se pudo validar la base: {exc}")
+        os.environ["CPCONSTRUCCION_DB"] = str(ruta)
+    sys.argv = [sys.argv[0], *rest]
+
+
+_seleccionar_base_por_argumento()
+
 # Backend Qt: por defecto Qt elige (xcb en Xorg, wayland en Wayland). Si el
 # usuario exporta INGEPPTO_FORCE_XCB=1, se fuerza xcb (compat con la versión
 # anterior — útil si algún WM raro tiene un bug en Wayland nativo).
