@@ -343,6 +343,8 @@ class RecursoSelectorDialog(QDialog):
         lbl_inei = QLabel("Índice INEI *:")
         lbl_inei.setStyleSheet("font-weight:600;")
         form.addRow(lbl_inei, self.cmb_n_inei)
+        lbl_inei.hide()
+        self.cmb_n_inei.hide()
 
         # Campo libre para índice manual (visible solo con "Otro")
         self.inp_n_inei = QLineEdit()
@@ -360,7 +362,8 @@ class RecursoSelectorDialog(QDialog):
         self.inp_n_codigo.setStyleSheet(
             "QLineEdit { background:#F5F5F5; color:#667885; border-radius:4px; padding:2px 6px; }"
         )
-        form.addRow("Código INEI:", self.inp_n_codigo)
+        form.addRow("Código interno:", self.inp_n_codigo)
+        self.inp_n_codigo.hide()
 
         self.inp_n_unidad = QLineEdit()
         self.inp_n_unidad.setPlaceholderText("hh, m³, kg, glb, …")
@@ -663,11 +666,8 @@ class RecursoSelectorDialog(QDialog):
             return
 
         inei = self._inei_actual()
-        if not inei or len(inei) != 2:
-            self.lbl_n_error.setText("El Índice INEI es obligatorio (2 dígitos).")
-            if hasattr(self, 'cmb_n_inei'):
-                self.cmb_n_inei.setFocus()
-            return
+        # El índice INEI no es obligatorio para insumos argentinos.
+        inei = ""
 
         tipo   = self.cmb_n_tipo.currentData()
         unidad = self.inp_n_unidad.text().strip()
@@ -676,7 +676,7 @@ class RecursoSelectorDialog(QDialog):
 
         conn = get_db()
         if not codigo:
-            codigo = _siguiente_codigo_inei(conn, inei)
+            codigo = _siguiente_codigo_inei(conn, "99")
 
         cur = conn.execute(
             "INSERT INTO recursos "
