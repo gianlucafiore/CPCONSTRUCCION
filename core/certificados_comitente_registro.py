@@ -54,6 +54,12 @@ def registrar_desde_medicion(conn, proyecto_id, valorizacion_id):
          str(resumen["costo_directo"]),str(resumen["total"]),
          json.dumps(detalle,ensure_ascii=False))
     )
+    # Al registrar un certificado se congela la medición origen. La misma
+    # transacción asegura que no quede congelada si el guardado fracasa.
+    conn.execute(
+        "UPDATE valorizaciones SET estado='cerrada' WHERE id=?",
+        (valorizacion_id,)
+    )
     return row.lastrowid
 
 
