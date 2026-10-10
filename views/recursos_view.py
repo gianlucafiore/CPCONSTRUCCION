@@ -161,6 +161,7 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
         self.cmb_inei.addItem("Otro (ingresar manualmente)", "OTRO")
         self.cmb_inei.currentIndexChanged.connect(self._on_inei_change)
         form.addRow("Índice INEI *:", self.cmb_inei)
+        self.cmb_inei.hide()
 
         self.inp_inei_libre = QLineEdit()
         self.inp_inei_libre.setPlaceholderText("Código de 2 dígitos, ej: 15")
@@ -321,10 +322,8 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
             return
 
         inei = self._inei_actual()
-        if not (len(inei) == 2 and inei.isdigit()):
-            self.lbl_err.setText("El Índice INEI es obligatorio (2 dígitos).")
-            self.cmb_inei.setFocus()
-            return
+        # Índice económico legado: opcional en CPconstruccion.
+        inei = inei if len(inei) == 2 and inei.isdigit() else ""
 
         tipo = self.cmb_tipo.currentData()
         unidad = self.inp_unidad.text().strip()
@@ -333,7 +332,7 @@ class RecursoFormDialog(UnidadSuperindiceMixin, QDialog):
 
         conn = get_db()
         if not codigo:
-            codigo = _siguiente_codigo_inei(conn, inei)
+            codigo = _siguiente_codigo_inei(conn, inei or "99")
 
         # Para overhead (% MO / % MAT / % EQ) el precio debe ser 0
         if unidad.startswith('%'):
